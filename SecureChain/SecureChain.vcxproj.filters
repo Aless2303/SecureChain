@@ -18,5 +18,67 @@
     <ClCompile Include="Source.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="structuri_asn1.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="creare_salvare_chei.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="handshake_validare.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="handshake_ecdh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="elemente_simetrice.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="criptare_fancyofb.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="generare_rsa.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="tranzactii.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="decriptare_tranzactii.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="jurnal.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="structuri_asn1.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="creare_salvare_chei.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="handshake_validare.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="handshake_ecdh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="elemente_simetrice.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="criptare_fancyofb.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="generare_rsa.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tranzactii.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="decriptare_tranzactii.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="jurnal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

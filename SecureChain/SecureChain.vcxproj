@@ -105,6 +105,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>D:\OpenSSL-Win64\include</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -130,7 +131,29 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="creare_salvare_chei.cpp" />
+    <ClCompile Include="criptare_fancyofb.cpp" />
+    <ClCompile Include="decriptare_tranzactii.cpp" />
+    <ClCompile Include="elemente_simetrice.cpp" />
+    <ClCompile Include="generare_rsa.cpp" />
+    <ClCompile Include="handshake_ecdh.cpp" />
+    <ClCompile Include="handshake_validare.cpp" />
+    <ClCompile Include="jurnal.cpp" />
     <ClCompile Include="Source.cpp" />
+    <ClCompile Include="structuri_asn1.cpp" />
+    <ClCompile Include="tranzactii.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="creare_salvare_chei.h" />
+    <ClInclude Include="criptare_fancyofb.h" />
+    <ClInclude Include="decriptare_tranzactii.h" />
+    <ClInclude Include="elemente_simetrice.h" />
+    <ClInclude Include="generare_rsa.h" />
+    <ClInclude Include="handshake_ecdh.h" />
+    <ClInclude Include="handshake_validare.h" />
+    <ClInclude Include="jurnal.h" />
+    <ClInclude Include="structuri_asn1.h" />
+    <ClInclude Include="tranzactii.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
