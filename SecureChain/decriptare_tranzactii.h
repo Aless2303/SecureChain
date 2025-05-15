@@ -3,7 +3,6 @@
 
 #include <string>
 
-// Funcție pentru decriptarea unei tranzacții
 int decripteaza_tranzactie(const std::string& fisier_tranzactie,
     const std::string& id_sender,
     int sym_elements_id,

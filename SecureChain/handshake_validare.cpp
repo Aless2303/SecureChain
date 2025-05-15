@@ -12,7 +12,6 @@
 
 //fct pentru incarcarea unei chei private ECC din fisierul pem
 EVP_PKEY* incarca_cheie_privata(const std::string& id_entitate, const char* parola) {
-    // Formez numele fișierului corect
     char nume_fisier[256];
     sprintf(nume_fisier, "%s_priv.ecc", id_entitate.c_str());
 
@@ -37,7 +36,6 @@ EVP_PKEY* incarca_cheie_privata(const std::string& id_entitate, const char* paro
 
 //fct pentru incarcarea unei chei publice ECC din fisierul pem
 EVP_PKEY* incarca_cheie_publica(const std::string& id_entitate) {
-    // Formez numele fișierului corect
     char nume_fisier[256];
     sprintf(nume_fisier, "%s_pub.ecc", id_entitate.c_str());
 
@@ -60,9 +58,8 @@ EVP_PKEY* incarca_cheie_publica(const std::string& id_entitate) {
     return cheie_publica;
 }
 
-// Funcție pentru încărcarea cheii private RSA
+
 RSA* incarca_cheie_privata_rsa(const std::string& id_entitate, const char* parola) {
-    // Formez numele fișierului corect
     char nume_fisier[256];
     sprintf(nume_fisier, "%s_priv.rsa", id_entitate.c_str());
 
@@ -85,9 +82,8 @@ RSA* incarca_cheie_privata_rsa(const std::string& id_entitate, const char* parol
     return cheie_privata;
 }
 
-// Funcție pentru încărcarea cheii publice RSA
+
 EVP_PKEY* incarca_cheie_publica_rsa(const std::string& id_entitate) {
-    // Formez numele fișierului corect
     char nume_fisier[256];
     sprintf(nume_fisier, "%s_pub.rsa", id_entitate.c_str());
 
@@ -106,7 +102,8 @@ EVP_PKEY* incarca_cheie_publica_rsa(const std::string& id_entitate) {
         return nullptr;
     }
 
-    // Convertesc RSA* la EVP_PKEY*
+
+    //convertesc rsa in evp_pkey
     EVP_PKEY* cheie_publica = EVP_PKEY_new();
     if (!EVP_PKEY_set1_RSA(cheie_publica, rsa_key)) {
         printf("eroare la convertirea RSA la EVP_PKEY: ");
@@ -125,7 +122,7 @@ EVP_PKEY* incarca_cheie_publica_rsa(const std::string& id_entitate) {
 int extrage_mac_din_fisier(const std::string& id_entitate, bool is_rsa, unsigned char** cheie_mac,
     unsigned char** valoare_mac, size_t* lungime_cheie, size_t* lungime_valoare) {
 
-    // Formez numele fișierului corect
+
     char nume_fisier[256];
     if (is_rsa) {
         sprintf(nume_fisier, "%s_rsa.mac", id_entitate.c_str());
@@ -223,13 +220,11 @@ int recalculeaza_gmac(unsigned char* cheie_mac, size_t lungime_cheie_mac,
     }
     printf("\n");
 
-    // Vector de inițializare pentru GMAC (12 zerouri)
     unsigned char iv[12] = { 0 };  // IV umplut cu zerouri
 
     // param pentru GMAC, cu IV adăugat explicit
     OSSL_PARAM parametri[3];
-    parametri[0] = OSSL_PARAM_construct_utf8_string("cipher", (char*)"AES-128-GCM", 0); // Actualizat pentru AES-128
-    // Adăugăm parametrul IV folosind denumirea exactă din OpenSSL
+    parametri[0] = OSSL_PARAM_construct_utf8_string("cipher", (char*)"AES-128-GCM", 0);
     parametri[1] = OSSL_PARAM_construct_octet_string("iv", iv, sizeof(iv));
     parametri[2] = OSSL_PARAM_construct_end();
 

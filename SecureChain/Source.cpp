@@ -41,7 +41,7 @@ void afiseaza_bytes(const char* nume, unsigned char* date, int lungime) {
     printf("\n");
 }
 
-// Funcție simplă pentru procesarea fișierului de intrare
+
 int proceseaza_fisier_intrare(const char* nume_fisier) {
     FILE* f = fopen(nume_fisier, "r");
     if (!f) {
@@ -49,68 +49,76 @@ int proceseaza_fisier_intrare(const char* nume_fisier) {
         return 1;
     }
 
-    // Inițializăm jurnalul
+
     Jurnal* jurnal = Jurnal::obtine_instanta();
     jurnal->seteaza_fisier("info.log");
     jurnal->adauga_actiune("System", "Pornire aplicatie");
 
-    // Citim numărul de entități
     int numar_entitati;
     fscanf(f, "%d\n", &numar_entitati);
 
-    // Generăm chei pentru fiecare entitate
+
+    //generez chei pentru toate entitatile
     int id_entitate;
     char parola[32];
 
     for (int i = 0; i < numar_entitati; i++) {
         fscanf(f, "%d %s\n", &id_entitate, parola);
 
-        // Convertim ID-ul în string pentru a-l folosi în numele fișierelor
+
+        //convertesc id-ul in string pentru a l folosi in numele fisierelor 
         char id_str[16];
         sprintf(id_str, "%d", id_entitate);
 
-        // Generăm chei ECC
+
+        //generez cheile ecc
         char nume_cheie_privata_ecc[32], nume_cheie_publica_ecc[32], nume_mac_ecc[32];
         sprintf(nume_cheie_privata_ecc, "%d_priv.ecc", id_entitate);
         sprintf(nume_cheie_publica_ecc, "%d_pub.ecc", id_entitate);
         sprintf(nume_mac_ecc, "%d_ecc.mac", id_entitate);
 
         if (creeaza_salveaza_chei(id_str, nume_cheie_privata_ecc, nume_cheie_publica_ecc, nume_mac_ecc) != 0) {
-            printf("Eroare la generarea cheilor ECC pentru Entitatea %d\n", id_entitate);
+            printf("Eroare la generarea cheilor ECC pentru entitatea %d\n", id_entitate);
             fclose(f);
             return 1;
         }
         jurnal->adauga_actiune(id_str, "Generare chei EC reusita");
 
-        // Generăm chei RSA
+
+        //generez chei rsa
         char nume_cheie_privata_rsa[32], nume_cheie_publica_rsa[32];
         sprintf(nume_cheie_privata_rsa, "%d_priv.rsa", id_entitate);
         sprintf(nume_cheie_publica_rsa, "%d_pub.rsa", id_entitate);
 
         if (genereaza_salveaza_chei_rsa(id_str, nume_cheie_privata_rsa, nume_cheie_publica_rsa) != 0) {
-            printf("Eroare la generarea cheilor RSA pentru Entitatea %d\n", id_entitate);
+            printf("Eroare la generarea cheilor RSA pentru entitatea %d\n", id_entitate);
             fclose(f);
             return 1;
         }
         jurnal->adauga_actiune(id_str, "Generare chei RSA reusita");
     }
 
-    // Citim numărul de tranzacții
+
+    //citesc nr de tranzactii
     int numar_tranzactii;
     fscanf(f, "%d\n", &numar_tranzactii);
 
-    // Procesăm fiecare tranzacție
-    int sym_counter = 1;  // Contor pentru elementele simetrice
+
+    //procesez tranzactiile rand pe rand
+    int sym_counter = 1;  // elementele simetrice
 
     for (int i = 0; i < numar_tranzactii; i++) {
         char linie[2048];
         fgets(linie, sizeof(linie), f);
 
-        // Variabile pentru datele din tranzacție
+
+        //variabile pentru datele din tranzactie
         int id_tranzactie, id_sursa, id_dest;
         char subiect[512], mesaj[1024];
 
-        // Parsăm linia în formatul: id_tranzacție/id_entitate_sursă/id_entitate_destinație/subiect/mesaj
+        //parsez linia in formatul urmator: 
+        //id_tranzactie/id_entitate_sursă/
+        //id_entitate_destinatie/subiect/mesaj
         sscanf(linie, "%d/%d/%d/%[^/]/%[^\n]",
             &id_tranzactie,
             &id_sursa,
@@ -118,13 +126,15 @@ int proceseaza_fisier_intrare(const char* nume_fisier) {
             subiect,
             mesaj);
 
-        // Convertim ID-urile în string
+
+        //convertesc id-urile in string
         char id_sursa_str[16], id_dest_str[16];
         sprintf(id_sursa_str, "%d", id_sursa);
         sprintf(id_dest_str, "%d", id_dest);
 
-        // Verificăm autenticitatea cheilor
-        printf("\nVerificam autenticitatea cheii publice a Entitatii %s...\n", id_dest_str);
+
+        //verific autenticitatea cheilor
+        printf("\nVerificam autenticitatea cheii publice a entitatii %s...\n", id_dest_str);
         jurnal->adauga_actiune("System", "Verificare autenticitate cheie publica Entitate " + std::string(id_dest_str));
 
         if (!verifica_autenticitate_cheie_publica(id_dest_str)) {
@@ -132,18 +142,22 @@ int proceseaza_fisier_intrare(const char* nume_fisier) {
             jurnal->adauga_actiune("System", "Eroare la verificarea autenticitatii cheii publice ECC Entitate " + std::string(id_dest_str));
             continue;
         }
+
         printf("Autenticitatea cheii ECC verificata cu succes\n");
         jurnal->adauga_actiune("System", "Autenticitate cheie publica ECC Entitate " + std::string(id_dest_str) + " verificata cu succes");
+
 
         if (!verifica_autenticitate_cheie_publica_rsa(id_dest_str)) {
             printf("Verificarea autenticitatii cheii publice RSA a entitatii %s a esuat\n", id_dest_str);
             jurnal->adauga_actiune("System", "Eroare la verificarea autenticitatii cheii publice RSA Entitate " + std::string(id_dest_str));
             continue;
         }
+
         printf("Autenticitatea cheii RSA verificata cu succes\n");
         jurnal->adauga_actiune("System", "Autenticitate cheie publica RSA Entitate " + std::string(id_dest_str) + " verificata cu succes");
 
-        // Citim din nou fișierul pentru a găsi parola entității sursă
+
+        //citesc iar fisierul ca sa gasesc parola entitatii sursa
         FILE* f_parole = fopen(nume_fisier, "r");
         int nr_ent;
         fscanf(f_parole, "%d\n", &nr_ent);
@@ -166,11 +180,13 @@ int proceseaza_fisier_intrare(const char* nume_fisier) {
             continue;
         }
 
-        // Efectuăm handshake ECDH
+
+        //fac handshake ecdh
         printf("\n=== Handshake ECDH si derivare chei simetrice ===\n");
         jurnal->adauga_actiune("System", "Incepere handshake ECDH intre Entitate " + std::string(id_sursa_str) + " si Entitate " + std::string(id_dest_str));
 
-        // Încărcăm cheile pentru handshake
+
+        //incarc cheile pentru handshake
         EVP_PKEY* cheie_privata_sursa = incarca_cheie_privata(id_sursa_str, parola_sursa);
         EVP_PKEY* cheie_publica_dest = incarca_cheie_publica(id_dest_str);
 
@@ -182,7 +198,8 @@ int proceseaza_fisier_intrare(const char* nume_fisier) {
             continue;
         }
 
-        // Efectuăm handshake și derivare chei
+
+        //efectuez handshake si derivarea cheii
         ElementeHandshake elemente;
         if (handshake_ecdh_derivare_chei(cheie_privata_sursa, cheie_publica_dest, &elemente) != 0) {
             printf("Eroare la handshake si derivarea cheilor\n");
@@ -193,12 +210,14 @@ int proceseaza_fisier_intrare(const char* nume_fisier) {
         }
         jurnal->adauga_actiune(id_sursa_str, "Handshake ECDH cu Entitate " + std::string(id_dest_str) + " reusit");
 
-        // Afișăm elementele simetrice
+
+        //afisez el simetrice
         afiseaza_bytes("SymLeft", elemente.sym_left, 16);
         afiseaza_bytes("SymRight (primii 16 octeti)", elemente.sym_right, 16);
         afiseaza_bytes("SymKey", elemente.sym_key, 16);
 
-        // Salvăm elementele simetrice
+
+        //salvez el simetrice
         char nume_fisier_sym[32];
         sprintf(nume_fisier_sym, "%d.sym", sym_counter);
 
@@ -215,7 +234,8 @@ int proceseaza_fisier_intrare(const char* nume_fisier) {
         EVP_PKEY_free(cheie_privata_sursa);
         EVP_PKEY_free(cheie_publica_dest);
 
-        // Creăm tranzacția
+
+        //creez tranzactia
         printf("\n=== Creare tranzactie ===\n");
         jurnal->adauga_actiune(id_sursa_str, "Incepere creare tranzactie pentru Entitate " + std::string(id_dest_str));
 
@@ -234,7 +254,8 @@ int proceseaza_fisier_intrare(const char* nume_fisier) {
         }
         jurnal->adauga_actiune(id_sursa_str, "Tranzactie #" + std::to_string(id_tranzactie) + " creata si semnata pentru Entitate " + std::string(id_dest_str));
 
-        // Decriptăm tranzacția
+
+        //decriptez tranzactia
         printf("\n=== Decriptare tranzactie ===\n");
         jurnal->adauga_actiune(id_dest_str, "Incepere decriptare tranzactie #" + std::to_string(id_tranzactie) + " de la Entitate " + std::string(id_sursa_str));
 
@@ -252,7 +273,8 @@ int proceseaza_fisier_intrare(const char* nume_fisier) {
         printf("Mesaj decriptat: %.*s\n", lungime_date_decriptate, date_decriptate);
         OPENSSL_free(date_decriptate);
 
-        // Incrementăm contorul pentru următoarele elemente simetrice
+
+        //incrementez pentru a continua cu urmatoarele el simetrice
         sym_counter++;
     }
 

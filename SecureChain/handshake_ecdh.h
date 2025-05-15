@@ -13,7 +13,6 @@ typedef struct {
 } ElementeHandshake;
 
 
-//fct pentru realizarea handshake-ului ECDH si derivarea cheii simetrice
 int handshake_ecdh_derivare_chei(EVP_PKEY* cheie_privata, EVP_PKEY* cheie_publica_peer,
     ElementeHandshake* elemente);
 

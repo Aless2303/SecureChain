@@ -5,13 +5,11 @@
 #include <fstream>
 #include <mutex>
 
-// Clasa Jurnal implementată ca Singleton pentru jurnalizarea acțiunilor
 class Jurnal {
 private:
     Jurnal();
     ~Jurnal();
 
-    // Blocăm constructorul de copiere și operatorul de atribuire
     Jurnal(const Jurnal&) = delete;
     Jurnal& operator=(const Jurnal&) = delete;
 

@@ -8,7 +8,7 @@
 Jurnal* Jurnal::instanta = nullptr;
 std::mutex Jurnal::mutex_jurnal;
 
-Jurnal::Jurnal() : cale_fisier("info.log") { // Modificat numele fișierului
+Jurnal::Jurnal() : cale_fisier("info.log") { 
     deschide_fisier();
 }
 
@@ -60,10 +60,10 @@ std::string Jurnal::obtine_timestamp() {
     auto acum = std::time(nullptr);
     auto tm_info = std::localtime(&acum);
 
-    char data[11]; // DD.MM.YYYY + null terminator
+    char data[11]; 
     std::strftime(data, sizeof(data), "%d.%m.%Y", tm_info);
 
-    char ora[9]; // HH:MM:SS + null terminator
+    char ora[9];
     std::strftime(ora, sizeof(ora), "%H:%M:%S", tm_info);
 
     return std::string(data) + std::string(ora);
@@ -78,7 +78,6 @@ bool Jurnal::adauga_actiune(const std::string& entitate, const std::string& acti
 
     std::string data_timp = obtine_timestamp();
 
-    // Format: <data><timp><entitate><actiune>
     std::string data = "<" + data_timp.substr(0, 10) + ">";
     std::string timp = "<" + data_timp.substr(10) + ">";
     std::string id_entitate = "<" + entitate + ">";

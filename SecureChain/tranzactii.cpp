@@ -49,8 +49,6 @@ int decodifica_base64(const unsigned char* input, int lungime_input,
 
 int incarca_elemente_simetrice(const std::string& sym_elements_id,
     ElementeHandshake* elemente) {
-
-    // Noul format pentru numele fișierului
     char nume_fisier[256];
     sprintf(nume_fisier, "%s.sym", sym_elements_id.c_str());
 
@@ -260,7 +258,6 @@ int creeaza_tranzactie(int transaction_id, const std::string& subiect,
     //incarc elementele simetrice
     ElementeHandshake elemente;
 
-    // Folosim noul format de denumire fișier
     std::string sym_id_str = std::to_string(sym_elements_id);
     if (incarca_elemente_simetrice(sym_id_str, &elemente) != 0) {
         printf("Eroare la incarcarea elementelor simetrice\n");
@@ -313,7 +310,8 @@ int creeaza_tranzactie(int transaction_id, const std::string& subiect,
     unsigned char* semnatura = NULL;
     int lungime_semnatura = 0;
 
-    // Folosim ID-ul expeditorului pentru a găsi cheia privată
+
+    //folosesc id-ul de la expeditor pentru a gasi cheia privata
     std::string id_sursa_str = std::to_string(sender_id);
     if (semneaza_cu_rsa(tranzactie_der_temp, lungime_tranzactie_der_temp,
         id_sursa_str, &semnatura, &lungime_semnatura) != 0) {
@@ -346,7 +344,7 @@ int creeaza_tranzactie(int transaction_id, const std::string& subiect,
         return 1;
     }
 
-    // Noul format pentru numele fișierului: idSrc_idDest_idTranzactie.trx
+
     char nume_fisier[256];
     sprintf(nume_fisier, "%d_%d_%d.trx", sender_id, receiver_id, transaction_id);
 

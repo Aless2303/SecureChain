@@ -43,7 +43,6 @@ int codifica_base64(unsigned char* input, int lungime, unsigned char** output, i
 }
 
 int salveaza_elemente_simetrice(int sym_elements_id, ElementeHandshake* elemente, const std::string& fisier_output) {
-    // Noul format pentru numele fișierului
     char nume_fisier[256];
     sprintf(nume_fisier, "%d.sym", sym_elements_id);
 

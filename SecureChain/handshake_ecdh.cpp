@@ -96,9 +96,7 @@ int handshake_ecdh_derivare_chei(EVP_PKEY* cheie_privata, EVP_PKEY* cheie_public
     EC_KEY_free(ec_cheie_publica);
 
 
-    //procesul de derivare a cheilor: 
-
-
+    //procesul de derivare a cheilor:
     unsigned char x_hash[32];
     SHA256(x, 32, x_hash);
 

@@ -10,7 +10,8 @@
 #include <stdio.h>
 #include <ctime>
 
-// Funcție pentru calcularea diferenței de timp (refolosită din creare_salvare_chei.cpp)
+
+//calcularea diferentei de timp rsa
 int calculeaza_diferenta_timp_rsa(unsigned char* diferenta, size_t* lungime_diferenta)
 {
     time_t acum = time(nullptr);
@@ -43,10 +44,9 @@ int genereaza_salveaza_chei_rsa(const std::string& nume_entitate,
     const std::string& fisier_cheie_privata_rsa,
     const std::string& fisier_cheie_publica_rsa) {
 
-    // Extrage ID-ul entității din nume_entitate (presupunem că este un număr)
     int id_entitate = atoi(nume_entitate.c_str());
 
-    // Formez noile nume de fișiere conform convențiilor
+    //formez numele de fisiere
     char nume_cheie_privata_rsa[256], nume_cheie_publica_rsa[256], nume_mac_rsa[256];
     sprintf(nume_cheie_privata_rsa, "%d_priv.rsa", id_entitate);
     sprintf(nume_cheie_publica_rsa, "%d_pub.rsa", id_entitate);
@@ -81,7 +81,8 @@ int genereaza_salveaza_chei_rsa(const std::string& nume_entitate,
         return 1;
     }
 
-    // Obțin RSA* din EVP_PKEY
+
+    //obtin rsa din evp_pkey
     RSA* rsa_key = EVP_PKEY_get1_RSA(pkey);
     if (!rsa_key) {
         printf("Eroare la extragerea cheii RSA din EVP_PKEY\n");
@@ -136,9 +137,11 @@ int genereaza_salveaza_chei_rsa(const std::string& nume_entitate,
     }
     BIO_free_all(bio_public);
 
-    // Generez GMAC pentru cheia publică RSA
 
-    // Obțin forma DER a cheii publice
+    //generez GMAC pentru cheia publica rsa
+
+
+    //obtin forma der a cheii publice
     unsigned char* cheie_publica_der = nullptr;
     int lungime_cheie_publica = i2d_PUBKEY(pkey, &cheie_publica_der);
     if (lungime_cheie_publica <= 0) {
@@ -149,7 +152,6 @@ int genereaza_salveaza_chei_rsa(const std::string& nume_entitate,
         return 1;
     }
 
-    // Calculez diferența de timp pentru generarea cheii GMAC
     unsigned char diferenta_timp[32];
     size_t lungime_diferenta;
     if (calculeaza_diferenta_timp_rsa(diferenta_timp, &lungime_diferenta) != 0) {
@@ -161,7 +163,8 @@ int genereaza_salveaza_chei_rsa(const std::string& nume_entitate,
         return 1;
     }
 
-    // Generez cheia pentru GMAC (16 bytes pentru AES-128)
+
+    //generez cheia gmac 16 bytes pentru aes-128
     unsigned char cheie_mac[16];
     const EVP_MD* digest = EVP_sha3_256();
     if (!digest) {
@@ -183,7 +186,6 @@ int genereaza_salveaza_chei_rsa(const std::string& nume_entitate,
         return 1;
     }
 
-    // Calcul GMAC
     unsigned char valoare_mac[16];
     EVP_MAC* mac = EVP_MAC_fetch(NULL, "GMAC", NULL);
     EVP_MAC_CTX* context_mac = EVP_MAC_CTX_new(mac);
@@ -214,7 +216,7 @@ int genereaza_salveaza_chei_rsa(const std::string& nume_entitate,
     EVP_MAC_free(mac);
     OPENSSL_free(cheie_publica_der);
 
-    // Salvez GMAC în format DER
+    //salvez gmac in format der
     PubKeyMac* mac_structura = PubKeyMac_new();
     if (!mac_structura) {
         printf("Eroare la crearea structurii PubKeyMac pentru RSA\n");

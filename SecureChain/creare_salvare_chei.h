@@ -3,11 +3,9 @@
 
 #include <string>
 
-// Funcția pentru crearea și salvarea perechilor de chei ECC
 int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& fisier_cheie_privata,
     const std::string& fisier_cheie_publica, const std::string& fisier_mac);
 
-// Funcția pentru calcularea diferenței de timp
 int calculeaza_diferenta_timp(unsigned char* diferenta, size_t* lungime_diferenta);
 
 #endif

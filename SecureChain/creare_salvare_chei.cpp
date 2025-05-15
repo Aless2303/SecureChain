@@ -52,10 +52,12 @@ int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& f
     EVP_PKEY* pkey = nullptr;
     BIO* bio = nullptr;
 
-    // Extrage ID-ul entității din nume_entitate (presupunem că este un număr)
+
+    //extragem id u entitatii din nume_entitate
     int id_entitate = atoi(nume_entitate.c_str());
 
-    // Formăm noile nume de fișiere conform convențiilor
+
+    //formam noilea nume de fisiere conform conventiei
     char nume_cheie_privata[256], nume_cheie_publica[256], nume_mac[256];
     sprintf(nume_cheie_privata, "%d_priv.ecc", id_entitate);
     sprintf(nume_cheie_publica, "%d_pub.ecc", id_entitate);
@@ -96,7 +98,8 @@ int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& f
     }
     BIO_free_all(bio);
 
-    // Salvez cheia publică în format specific EC
+
+    //salvez cheia publica in format EC
     bio = BIO_new_file(nume_cheie_publica, "w");
     if (!bio) {
         printf("eroare la deschiderea fisierului %s: ", nume_cheie_publica);
@@ -127,7 +130,7 @@ int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& f
         return 1;
     }
 
-    // Generez cheia pentru GMAC (16 bytes pentru AES-128) folosind PBKDF2 cu SHA3-256
+    //generez cheia pentru GMAC (16 bytes pentru AES-128) folosind PBKDF2 cu SHA3-256
     unsigned char cheie_mac[16]; // Redus de la 32 la 16 bytes pentru AES-128
     const EVP_MD* digest = EVP_sha3_256();
     if (!digest) {

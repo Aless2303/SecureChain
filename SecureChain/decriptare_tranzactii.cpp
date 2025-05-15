@@ -10,25 +10,26 @@
 #include <stdio.h>
 #include <string.h>
 
-// Funcție de decriptare folosind FancyOFB
+
+
 int decripteaza_fancyofb(unsigned char* date_criptate, int lungime_date_criptate,
     unsigned char* sym_key, unsigned char* iv,
     unsigned char** date_decriptate, int* lungime_date_decriptate) {
 
-    // Inițializarea AES context
+
+    //initializez aes context
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     if (!ctx) {
         printf("Eroare la crearea contextului AES pentru decriptare\n");
         return 1;
     }
 
-    // Creare inv_IV
+    //creare inv_IV
     unsigned char inv_iv[16];
     for (int i = 0; i < 16; i++) {
         inv_iv[i] = iv[15 - i]; // Reverse
     }
 
-    // Inițializarea decriptării cu AES-128-OFB
     if (!EVP_DecryptInit_ex(ctx, EVP_aes_128_ofb(), NULL, sym_key, iv)) {
         printf("Eroare la initializarea AES-128-OFB pentru decriptare\n");
         EVP_CIPHER_CTX_free(ctx);
@@ -50,7 +51,7 @@ int decripteaza_fancyofb(unsigned char* date_criptate, int lungime_date_criptate
         return 1;
     }
 
-    // XOR cu inv_iv pentru a reface modificarea FancyOFB
+    //XOR cu inv_iv pentru a reface modificarea FancyOFB
     for (int i = 0; i < lungime_date_criptate; i++) {
         date_intermediare[i] = date_criptate[i] ^ inv_iv[i % 16];
     }
@@ -58,7 +59,7 @@ int decripteaza_fancyofb(unsigned char* date_criptate, int lungime_date_criptate
     int lungime_temp = 0;
     *lungime_date_decriptate = 0;
 
-    // Decriptare cu OFB
+    //decriptare cu OFB
     if (!EVP_DecryptUpdate(ctx, *date_decriptate, &lungime_temp, date_intermediare, lungime_date_criptate)) {
         printf("Eroare la decriptarea datelor\n");
         OPENSSL_free(date_intermediare);
@@ -68,7 +69,7 @@ int decripteaza_fancyofb(unsigned char* date_criptate, int lungime_date_criptate
     }
     *lungime_date_decriptate += lungime_temp;
 
-    // Finalizare decriptare
+    //finalizez decriptarea
     if (!EVP_DecryptFinal_ex(ctx, *date_decriptate + *lungime_date_decriptate, &lungime_temp)) {
         printf("Eroare la finalizarea decriptarii\n");
         OPENSSL_free(date_intermediare);
@@ -84,12 +85,12 @@ int decripteaza_fancyofb(unsigned char* date_criptate, int lungime_date_criptate
     return 0;
 }
 
-// Verificarea semnăturii RSA
 int verifica_semnatura_rsa(const unsigned char* date, int lungime_date,
     const unsigned char* semnatura, int lungime_semnatura,
     const std::string& id_sender) {
 
-    // Obținem calea către fișierul cu cheia publică RSA
+
+    //obtin calea catre fisier cu cheia publica rsa
     char nume_fisier[256];
     sprintf(nume_fisier, "%s_pub.rsa", id_sender.c_str());
 
@@ -108,7 +109,8 @@ int verifica_semnatura_rsa(const unsigned char* date, int lungime_date,
         return 0;
     }
 
-    // Convertim RSA* în EVP_PKEY*
+
+    //convertesc rsa in evp_pkey
     EVP_PKEY* pkey = EVP_PKEY_new();
     if (!EVP_PKEY_set1_RSA(pkey, rsa_key)) {
         printf("Eroare la conversia RSA la EVP_PKEY\n");
@@ -116,7 +118,8 @@ int verifica_semnatura_rsa(const unsigned char* date, int lungime_date,
         return 0;
     }
 
-    // Creem contextul pentru verificarea semnăturii
+
+    //creez contextul pentru verificarea semnaturii
     EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
     if (!md_ctx) {
         printf("Eroare la crearea contextului pentru verificarea semnaturii\n");
@@ -125,7 +128,8 @@ int verifica_semnatura_rsa(const unsigned char* date, int lungime_date,
         return 0;
     }
 
-    // Inițializarea operației de verificare
+
+    //initializez operatia de verificare
     if (EVP_DigestVerifyInit(md_ctx, NULL, EVP_sha256(), NULL, pkey) != 1) {
         printf("Eroare la initializarea operatiei de verificare\n");
         EVP_MD_CTX_free(md_ctx);
@@ -134,7 +138,8 @@ int verifica_semnatura_rsa(const unsigned char* date, int lungime_date,
         return 0;
     }
 
-    // Verificăm datele
+
+    //verific datele
     if (EVP_DigestVerifyUpdate(md_ctx, date, lungime_date) != 1) {
         printf("Eroare la actualizarea operatiei de verificare\n");
         EVP_MD_CTX_free(md_ctx);
@@ -143,7 +148,8 @@ int verifica_semnatura_rsa(const unsigned char* date, int lungime_date,
         return 0;
     }
 
-    // Verificarea semnăturii
+
+    //verific semnatura
     int rezultat = EVP_DigestVerifyFinal(md_ctx, semnatura, lungime_semnatura);
 
     EVP_MD_CTX_free(md_ctx);
@@ -202,7 +208,8 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
 
     printf("    incarca_elemente_simetrice: lungime fisier=%d\n", lungime_fisier);
 
-    // Citirea tranzacției
+
+    //citesc tranzactia
     BIO* bio = BIO_new_file(fisier_tranzactie.c_str(), "rb");
     if (!bio) {
         printf("Eroare la deschiderea fisierului de tranzactie: %s\n", fisier_tranzactie.c_str());
@@ -233,7 +240,8 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
         return 1;
     }
 
-    // Extrag detaliile tranzacției
+
+    //extrag toate detaliile tranzactiei
     int transaction_id = ASN1_INTEGER_get(tranzactie->TransactionID);
     int sender_id = ASN1_INTEGER_get(tranzactie->SenderID);
     int receiver_id = ASN1_INTEGER_get(tranzactie->ReceiverID);
@@ -242,7 +250,8 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
     printf("Decriptez tranzactia #%d de la %d la %d (SymElementsID: %d)\n",
         transaction_id, sender_id, receiver_id, tranzactie_sym_id);
 
-    // Verific dacă corespund datele din symElementsID
+
+    //verific daca corespund toate datele dins ymelements
     if (tranzactie_sym_id != sym_elements_id) {
         printf("ID-ul elementelor simetrice din tranzactie (%d) nu corespunde cu cel asteptat (%d)\n",
             tranzactie_sym_id, sym_elements_id);
@@ -259,7 +268,8 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
         return 1;
     }
 
-    // Copiez tot fără semnătură
+
+    //copiez tot integral fara semnatura
     ASN1_INTEGER_set(tranzactie_temp->TransactionID, transaction_id);
     ASN1_STRING_set(tranzactie_temp->Subject,
         ASN1_STRING_get0_data(tranzactie->Subject),
@@ -270,7 +280,7 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
     ASN1_STRING_set(tranzactie_temp->EncryptedData,
         ASN1_STRING_get0_data(tranzactie->EncryptedData),
         ASN1_STRING_length(tranzactie->EncryptedData));
-    // Las TransactionSign gol
+    //transactionsign las gol
 
     unsigned char* temp_der = NULL;
     int lungime_temp_der = i2d_Transaction(tranzactie_temp, &temp_der);
@@ -294,7 +304,8 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
         return 1;
     }
 
-    // Încarc elementele simetrice
+
+    //incarc toate el simetrice
     ElementeHandshake elemente;
     std::string sym_id_str = std::to_string(sym_elements_id);
     if (incarca_elemente_simetrice(sym_id_str, &elemente) != 0) {
@@ -306,7 +317,8 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
         return 1;
     }
 
-    // Decriptez datele cu FancyOFB
+
+    //decriptez cu fancyofb
     if (decripteaza_fancyofb((unsigned char*)ASN1_STRING_get0_data(tranzactie->EncryptedData),
         ASN1_STRING_length(tranzactie->EncryptedData),
         elemente.sym_key, elemente.sym_right + 16,
