@@ -148,6 +148,8 @@ int incarca_elemente_simetrice(const std::string& sym_elements_id,
         return 1;
     }
 
+
+
     //scot symkey-ul si iv-ul
     memcpy(elemente->sym_key, ASN1_STRING_get0_data(sym_elements->SymKey), 16);
 
