@@ -17,11 +17,11 @@
 //PubKeyMAC:
 //	Toate informatiile generate vor fi salvate in fisiere specifice, astfel:
 //		cheile asimetrice in fisiere PEM;
-//		mac - urile cheilor publice, in fisier raw, continând codificarea DER a elementelor de forma :
+//		mac - urile cheilor publice, in fisier raw, continand codificarea DER a elementelor de forma :
 //SymElements
-//	elementele simetrice necesare criptării mesajelor, in fisiere codificate cu Base64, continând codificarea DER a elementelor de forma :
+//	elementele simetrice necesare criptării mesajelor, in fisiere codificate cu Base64, continand codificarea DER a elementelor de forma :
 //Transaction
-//	tranzactiile dintre entităti in fisiere raw, continând codificarea DER a elementelor de forma:
+//	tranzactiile dintre entităti in fisiere raw, continand codificarea DER a elementelor de forma:
 //voi folosi secp256k1 pentru chei si curba eliptica pe 256 biti.
 //cheile private le voi salva in format PEM. 
 //pem -> Privacy Enhanced Mail format de fisier utilizat pentru stocarea si transmiterea datelor criptografice.(certificate digitale, chei private
@@ -77,7 +77,7 @@ int proceseaza_fisier_intrare(const char* nume_fisier) {
         sprintf(nume_cheie_publica_ecc, "%d_pub.ecc", id_entitate);
         sprintf(nume_mac_ecc, "%d_ecc.mac", id_entitate);
 
-        if (creeaza_salveaza_chei(id_str, nume_cheie_privata_ecc, nume_cheie_publica_ecc, nume_mac_ecc) != 0) {
+        if (creeaza_salveaza_chei(id_str, parola,nume_cheie_privata_ecc, nume_cheie_publica_ecc, nume_mac_ecc) != 0) {
             printf("Eroare la generarea cheilor ECC pentru entitatea %d\n", id_entitate);
             fclose(f);
             return 1;
@@ -117,7 +117,7 @@ int proceseaza_fisier_intrare(const char* nume_fisier) {
         char subiect[512], mesaj[1024];
 
         //parsez linia in formatul urmator: 
-        //id_tranzactie/id_entitate_sursă/
+        //id_tranzactie/id_entitate_sursa/
         //id_entitate_destinatie/subiect/mesaj
         sscanf(linie, "%d/%d/%d/%[^/]/%[^\n]",
             &id_tranzactie,

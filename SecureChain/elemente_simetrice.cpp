@@ -1,4 +1,5 @@
-﻿#include "elemente_simetrice.h"
+﻿#pragma warning(disable : 4996)
+#include "elemente_simetrice.h"
 #include "structuri_asn1.h"
 #include <openssl/bio.h>
 #include <openssl/evp.h>

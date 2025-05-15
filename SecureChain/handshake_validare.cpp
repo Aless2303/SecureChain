@@ -222,7 +222,7 @@ int recalculeaza_gmac(unsigned char* cheie_mac, size_t lungime_cheie_mac,
 
     unsigned char iv[12] = { 0 };  // IV umplut cu zerouri
 
-    // param pentru GMAC, cu IV adăugat explicit
+    // param pentru GMAC, cu IV adaugat explicit
     OSSL_PARAM parametri[3];
     parametri[0] = OSSL_PARAM_construct_utf8_string("cipher", (char*)"AES-128-GCM", 0);
     parametri[1] = OSSL_PARAM_construct_octet_string("iv", iv, sizeof(iv));

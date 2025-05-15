@@ -91,7 +91,7 @@ int genereaza_salveaza_chei_rsa(const std::string& nume_entitate,
         return 1;
     }
 
-    //salvez cheia privata in fisier în format PKCS1
+    //salvez cheia privata in fisier in format PKCS1
     BIO* bio_private = BIO_new_file(nume_cheie_privata_rsa, "w");
     if (!bio_private) {
         printf("Eroare la deschiderea fisierului pentru cheia privata RSA: %s\n",
@@ -115,7 +115,7 @@ int genereaza_salveaza_chei_rsa(const std::string& nume_entitate,
     }
     BIO_free_all(bio_private);
 
-    //salvez cheia publica in fisier în format PKCS1
+    //salvez cheia publica in fisier in format PKCS1
     BIO* bio_public = BIO_new_file(nume_cheie_publica_rsa, "w");
     if (!bio_public) {
         printf("Eroare la deschiderea fisierului pentru cheia publica RSA: %s\n",
@@ -137,8 +137,6 @@ int genereaza_salveaza_chei_rsa(const std::string& nume_entitate,
     }
     BIO_free_all(bio_public);
 
-
-    //generez GMAC pentru cheia publica rsa
 
 
     //obtin forma der a cheii publice

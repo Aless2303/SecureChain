@@ -48,13 +48,15 @@ void Jurnal::seteaza_fisier(const std::string& cale) {
 }
 
 bool Jurnal::deschide_fisier() {
-    fisier_jurnal.open(cale_fisier, std::ios::binary | std::ios::app);
+    fisier_jurnal.open(cale_fisier, std::ios::binary | std::ios::out);
+
     if (!fisier_jurnal.is_open()) {
         std::cerr << "Eroare la deschiderea fisierului jurnal: " << cale_fisier << std::endl;
         return false;
     }
     return true;
 }
+
 
 std::string Jurnal::obtine_timestamp() {
     auto acum = std::time(nullptr);

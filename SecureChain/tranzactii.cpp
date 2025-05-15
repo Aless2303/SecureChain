@@ -148,16 +148,8 @@ int incarca_elemente_simetrice(const std::string& sym_elements_id,
         return 1;
     }
 
-
-
     //scot symkey-ul si iv-ul
     memcpy(elemente->sym_key, ASN1_STRING_get0_data(sym_elements->SymKey), 16);
-
-    //----------------------------------------------------------------------------------------------------------------------------------------
-    // We need to reconstruct SymRight and SymLeft based on available data
-    // For simplicity, we'll just recover the IV which is stored in the SymElements
-    // In a complete implementation, you'd recover all components as needed
-    //----------------------------------------------------------------------------------------------------------------------------------------
 
     //copiez iv-ul (de lapozitia 16 incolo)
     memcpy(elemente->sym_right + 16, ASN1_STRING_get0_data(sym_elements->IV), 16);

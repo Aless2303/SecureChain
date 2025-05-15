@@ -45,8 +45,10 @@ int calculeaza_diferenta_timp(unsigned char* diferenta, size_t* lungime_diferent
 }
 
 //functie de creare si salvare chei
-int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& fisier_cheie_privata,
-    const std::string& fisier_cheie_publica, const std::string& fisier_mac) {
+int creeaza_salveaza_chei(const std::string& nume_entitate, const char* parola,
+    const std::string& fisier_cheie_privata,
+    const std::string& fisier_cheie_publica,
+    const std::string& fisier_mac) {
 
     EC_KEY* cheie_ec = nullptr;
     EVP_PKEY* pkey = nullptr;
@@ -78,7 +80,7 @@ int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& f
         return 1;
     }
 
-    // Salvez cheia privată în format PKCS8
+    //salvez cheia privata in pkcs8
     bio = BIO_new_file(nume_cheie_privata, "w");
     if (!bio) {
         printf("eroare la deschiderea fisierului %s: ", nume_cheie_privata);
@@ -88,7 +90,7 @@ int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& f
         return 1;
     }
 
-    if (!PEM_write_bio_PKCS8PrivateKey(bio, pkey, EVP_aes_256_cbc(), (unsigned char*)"parolamea2303", strlen("parolamea2303"), nullptr, nullptr)) {
+    if (!PEM_write_bio_PKCS8PrivateKey(bio, pkey, EVP_aes_256_cbc(), (const char*)parola, strlen(parola), nullptr, nullptr)) {
         printf("eroare la salvarea cheii private: ");
         ERR_print_errors_fp(stderr);
         BIO_free_all(bio);

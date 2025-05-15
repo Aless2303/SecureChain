@@ -1,4 +1,4 @@
-﻿// Versiunea actualizată pentru AES-128-FancyOFB
+﻿#pragma warning(disable : 4996)
 #include "criptare_fancyofb.h"
 #include <openssl/evp.h>
 #include <openssl/err.h>
