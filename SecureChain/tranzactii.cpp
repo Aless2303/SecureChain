@@ -12,7 +12,6 @@
 #include <stdio.h>
 #include <string.h>
 
-
 //decodificare base 64
 int decodifica_base64(const unsigned char* input, int lungime_input,
     unsigned char** output, int* lungime_output) {
@@ -27,7 +26,6 @@ int decodifica_base64(const unsigned char* input, int lungime_input,
 
     BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
     mem = BIO_push(b64, mem);
-
 
     //alocare memorie pentru datele decodificate
     *output = (unsigned char*)OPENSSL_malloc(lungime_input);
@@ -49,13 +47,17 @@ int decodifica_base64(const unsigned char* input, int lungime_input,
     return 0;
 }
 
-int incarca_elemente_simetrice(const std::string& fisier_elemente, int sym_elements_id_asteptat,
+int incarca_elemente_simetrice(const std::string& sym_elements_id,
     ElementeHandshake* elemente) {
 
-    FILE* fp = fopen(fisier_elemente.c_str(), "rb");
+    // Noul format pentru numele fișierului
+    char nume_fisier[256];
+    sprintf(nume_fisier, "%s.sym", sym_elements_id.c_str());
+
+    FILE* fp = fopen(nume_fisier, "rb");
     if (!fp) {
         fprintf(stderr, "Eroare la deschiderea fisierului %s pentru calcularea dimensiunii: %s\n",
-            fisier_elemente.c_str(), strerror(errno));
+            nume_fisier, strerror(errno));
         return 1;
     }
 
@@ -74,7 +76,7 @@ int incarca_elemente_simetrice(const std::string& fisier_elemente, int sym_eleme
         return 1;
     }
     if (lungime_fisier == 0) {
-        fprintf(stderr, "Fisierul %s este gol\n", fisier_elemente.c_str());
+        fprintf(stderr, "Fisierul %s este gol\n", nume_fisier);
         fclose(fp);
         return 1;
     }
@@ -88,20 +90,15 @@ int incarca_elemente_simetrice(const std::string& fisier_elemente, int sym_eleme
     fclose(fp);
 
     printf("    incarca_elemente_simetrice: lungime fisier=%d\n", lungime_fisier);
+    printf("    incarca_elemente_simetrice: fisier_elemente=%s\n", nume_fisier);
 
-
-    //---------------------------
-
-    printf("    incarca_elemente_simetrice: fisier_elemente=%s\n", fisier_elemente.c_str());
     //incarc base64 fisierul de el simetrice
-    BIO* bio = BIO_new_file(fisier_elemente.c_str(), "rb");
+    BIO* bio = BIO_new_file(nume_fisier, "rb");
     if (!bio) {
         printf("Eroare la deschiderea fisierului de elemente simetrice %s\n",
-            fisier_elemente.c_str());
+            nume_fisier);
         return 1;
     }
-
- 
 
     unsigned char* date_base64 = (unsigned char*)OPENSSL_malloc(lungime_fisier + 1);
     if (!date_base64) {
@@ -109,9 +106,9 @@ int incarca_elemente_simetrice(const std::string& fisier_elemente, int sym_eleme
         BIO_free_all(bio);
         return 1;
     }
-    
-    printf("    incarca_elemente_simetrice: inainte de citirea din fisier_elemente=%s\n", fisier_elemente.c_str());
-    
+
+    printf("    incarca_elemente_simetrice: inainte de citirea din fisier_elemente=%s\n", nume_fisier);
+
     int bytes_cititi = BIO_read(bio, date_base64, lungime_fisier);
     if (bytes_cititi <= 0) {
         printf("Eroare la citirea fisierului de elemente simetrice\n");
@@ -121,8 +118,7 @@ int incarca_elemente_simetrice(const std::string& fisier_elemente, int sym_eleme
     }
     date_base64[bytes_cititi] = '\0';
     BIO_free_all(bio);
-    printf("    incarca_elemente_simetrice: dupa citirea din fisier_elemente=%s\n", fisier_elemente.c_str());
-
+    printf("    incarca_elemente_simetrice: dupa citirea din fisier_elemente=%s\n", nume_fisier);
 
     //decodific base64
     unsigned char* date_der = NULL;
@@ -135,7 +131,6 @@ int incarca_elemente_simetrice(const std::string& fisier_elemente, int sym_eleme
     }
     OPENSSL_free(date_base64);
 
-
     //parsez datele DER
     const unsigned char* p = date_der;
     SymElements* sym_elements = d2i_SymElements(NULL, &p, lungime_der);
@@ -145,17 +140,15 @@ int incarca_elemente_simetrice(const std::string& fisier_elemente, int sym_eleme
         return 1;
     }
 
-
     //verific daca ID-ul este acelasi.
     long sym_id = ASN1_INTEGER_get(sym_elements->SymElementsID);
-    if (sym_id != sym_elements_id_asteptat) {
+    if (sym_id != atoi(sym_elements_id.c_str())) {
         printf("ID-ul elementelor simetrice nu corespunde (asteptat: %d, gasit: %ld)\n",
-            sym_elements_id_asteptat, sym_id);
+            atoi(sym_elements_id.c_str()), sym_id);
         SymElements_free(sym_elements);
         OPENSSL_free(date_der);
         return 1;
     }
-
 
     //scot symkey-ul si iv-ul
     memcpy(elemente->sym_key, ASN1_STRING_get0_data(sym_elements->SymKey), 16);
@@ -169,28 +162,27 @@ int incarca_elemente_simetrice(const std::string& fisier_elemente, int sym_eleme
     //copiez iv-ul (de lapozitia 16 incolo)
     memcpy(elemente->sym_right + 16, ASN1_STRING_get0_data(sym_elements->IV), 16);
 
-
     SymElements_free(sym_elements);
     OPENSSL_free(date_der);
 
     return 0;
 }
 
-
-
 //functie de semnare cu rsa
 int semneaza_cu_rsa(const unsigned char* date, int lungime_date,
-    const std::string& fisier_cheie_privata_rsa,
+    const std::string& id_sursa,
     unsigned char** semnatura, int* lungime_semnatura) {
 
     //incarc cheia privata
-    BIO* bio = BIO_new_file(fisier_cheie_privata_rsa.c_str(), "r");
+    char nume_fisier[256];
+    sprintf(nume_fisier, "%s_priv.rsa", id_sursa.c_str());
+
+    BIO* bio = BIO_new_file(nume_fisier, "r");
     if (!bio) {
         printf("Eroare la deschiderea fisierului cu cheia privata RSA: %s\n",
-            fisier_cheie_privata_rsa.c_str());
+            nume_fisier);
         return 1;
     }
-
 
     EVP_PKEY* pkey = PEM_read_bio_PrivateKey(bio, NULL, NULL, (void*)"parolamea2303");
     BIO_free_all(bio);
@@ -200,7 +192,6 @@ int semneaza_cu_rsa(const unsigned char* date, int lungime_date,
         return 1;
     }
 
-
     //creez contextul pentru semnatura
     EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
     if (!md_ctx) {
@@ -208,7 +199,6 @@ int semneaza_cu_rsa(const unsigned char* date, int lungime_date,
         EVP_PKEY_free(pkey);
         return 1;
     }
-
 
     //initializez operatia de semnare 
     if (EVP_DigestSignInit(md_ctx, NULL, EVP_sha256(), NULL, pkey) != 1) {
@@ -218,7 +208,6 @@ int semneaza_cu_rsa(const unsigned char* date, int lungime_date,
         return 1;
     }
 
-
     //actualizez operatia de semnare
     if (EVP_DigestSignUpdate(md_ctx, date, lungime_date) != 1) {
         printf("Eroare la actualizarea operatia de semnare\n");
@@ -226,7 +215,6 @@ int semneaza_cu_rsa(const unsigned char* date, int lungime_date,
         EVP_PKEY_free(pkey);
         return 1;
     }
-
 
     size_t len = 0;
     if (EVP_DigestSignFinal(md_ctx, NULL, &len) != 1) {
@@ -236,7 +224,6 @@ int semneaza_cu_rsa(const unsigned char* date, int lungime_date,
         return 1;
     }
 
-    
     *semnatura = (unsigned char*)OPENSSL_malloc(len);
     if (!*semnatura) {
         printf("Eroare la alocarea memoriei pentru semnaturii\n");
@@ -262,25 +249,24 @@ int semneaza_cu_rsa(const unsigned char* date, int lungime_date,
     return 0;
 }
 
-
 //creez tranzactia
 int creeaza_tranzactie(int transaction_id, const std::string& subiect,
     int sender_id, int receiver_id, int sym_elements_id,
     const unsigned char* date, int lungime_date,
-    const std::string& fisier_cheie_privata_rsa,
     const std::string& fisier_output) {
 
+    printf("ma apuc sa incarc elmeentele simetrice, sym_elements_id = %d\n", sym_elements_id);
 
-    printf("ma apuc sa incarc elmeentele simetrice, sym_elements_id = %d\n",sym_elements_id);
     //incarc elementele simetrice
     ElementeHandshake elemente;
-    if (incarca_elemente_simetrice("output/sym_elements_" + std::to_string(sym_elements_id) + ".base64",
-        sym_elements_id, &elemente) != 0) {
-        printf("Eroare la incarcarea  elementelor simetrice\n");
+
+    // Folosim noul format de denumire fișier
+    std::string sym_id_str = std::to_string(sym_elements_id);
+    if (incarca_elemente_simetrice(sym_id_str, &elemente) != 0) {
+        printf("Eroare la incarcarea elementelor simetrice\n");
         return 1;
     }
     printf("am incarcat elementele simetrice.\n");
-
 
     //criptez datele cu fancyofb 
     unsigned char* date_criptate = NULL;
@@ -290,7 +276,6 @@ int creeaza_tranzactie(int transaction_id, const std::string& subiect,
         printf("Eroare la criptarea datelor\n");
         return 1;
     }
-
 
     //creez structura de tranzactie (asn1). 
     Transaction* tranzactie = Transaction_new();
@@ -314,7 +299,6 @@ int creeaza_tranzactie(int transaction_id, const std::string& subiect,
         return 1;
     }
 
-
     //creez tranzactie DER codificata (fara semnatura)
     unsigned char* tranzactie_der_temp = NULL;
     int lungime_tranzactie_der_temp = i2d_Transaction(tranzactie, &tranzactie_der_temp);
@@ -325,19 +309,20 @@ int creeaza_tranzactie(int transaction_id, const std::string& subiect,
         return 1;
     }
 
-
     //semnez tranzactie
     unsigned char* semnatura = NULL;
     int lungime_semnatura = 0;
+
+    // Folosim ID-ul expeditorului pentru a găsi cheia privată
+    std::string id_sursa_str = std::to_string(sender_id);
     if (semneaza_cu_rsa(tranzactie_der_temp, lungime_tranzactie_der_temp,
-        fisier_cheie_privata_rsa, &semnatura, &lungime_semnatura) != 0) {
+        id_sursa_str, &semnatura, &lungime_semnatura) != 0) {
         printf("Eroare la semnarea tranzactiei\n");
         OPENSSL_free(tranzactie_der_temp);
         Transaction_free(tranzactie);
         OPENSSL_free(date_criptate);
         return 1;
     }
-
 
     //adaug semnatura in tranzactie acum
     if (!ASN1_STRING_set(tranzactie->TransactionSign, semnatura, lungime_semnatura)) {
@@ -348,7 +333,6 @@ int creeaza_tranzactie(int transaction_id, const std::string& subiect,
         OPENSSL_free(date_criptate);
         return 1;
     }
-
 
     //creez codificarea der finala a tranzactiei
     unsigned char* tranzactie_der_final = NULL;
@@ -362,12 +346,15 @@ int creeaza_tranzactie(int transaction_id, const std::string& subiect,
         return 1;
     }
 
+    // Noul format pentru numele fișierului: idSrc_idDest_idTranzactie.trx
+    char nume_fisier[256];
+    sprintf(nume_fisier, "%d_%d_%d.trx", sender_id, receiver_id, transaction_id);
 
     //salvez in fisier tranzactia creata
-    BIO* bio = BIO_new_file(fisier_output.c_str(), "wb");
+    BIO* bio = BIO_new_file(nume_fisier, "wb");
     if (!bio) {
         printf("Eroare la deschiderea fisierului pentru salvarea tranzactiei: %s\n",
-            fisier_output.c_str());
+            nume_fisier);
         OPENSSL_free(tranzactie_der_final);
         OPENSSL_free(semnatura);
         OPENSSL_free(tranzactie_der_temp);
@@ -391,14 +378,13 @@ int creeaza_tranzactie(int transaction_id, const std::string& subiect,
 
     BIO_free_all(bio);
 
-
     OPENSSL_free(tranzactie_der_final);
     OPENSSL_free(semnatura);
     OPENSSL_free(tranzactie_der_temp);
     Transaction_free(tranzactie);
     OPENSSL_free(date_criptate);
 
-    printf("tranzactie creata si salvata cu succes in %s\n", fisier_output.c_str());
+    printf("tranzactie creata si salvata cu succes in %s\n", nume_fisier);
 
     return 0;
 }

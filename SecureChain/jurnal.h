@@ -5,15 +5,13 @@
 #include <fstream>
 #include <mutex>
 
-//am ales sa fac clasa Jurnal si sa o fac singleton caci asa mi se pare mai ok sa fie
-//un logger/jurnal/clasa de expectii etc.
-
+// Clasa Jurnal implementată ca Singleton pentru jurnalizarea acțiunilor
 class Jurnal {
 private:
     Jurnal();
     ~Jurnal();
 
-    //blochez constructorul de copieze si operatorul de atribuire
+    // Blocăm constructorul de copiere și operatorul de atribuire
     Jurnal(const Jurnal&) = delete;
     Jurnal& operator=(const Jurnal&) = delete;
 
@@ -33,8 +31,8 @@ public:
     void seteaza_fisier(const std::string& cale);
 
     bool adauga_actiune(const std::string& entitate, const std::string& actiune);
-    
+
     static void elibereaza();
 };
 
-#endif 
+#endif

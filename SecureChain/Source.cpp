@@ -12,6 +12,8 @@
 #include "decriptare_tranzactii.h"
 #include "jurnal.h"
 
+
+
 //PubKeyMAC:
 //	Toate informatiile generate vor fi salvate in fisiere specifice, astfel:
 //		cheile asimetrice in fisiere PEM;
@@ -20,8 +22,6 @@
 //	elementele simetrice necesare criptării mesajelor, in fisiere codificate cu Base64, continând codificarea DER a elementelor de forma :
 //Transaction
 //	tranzactiile dintre entităti in fisiere raw, continând codificarea DER a elementelor de forma:
-
-
 //voi folosi secp256k1 pentru chei si curba eliptica pe 256 biti.
 //cheile private le voi salva in format PEM. 
 //pem -> Privacy Enhanced Mail format de fisier utilizat pentru stocarea si transmiterea datelor criptografice.(certificate digitale, chei private
@@ -29,6 +29,9 @@
 //mac-ul il stochez intr-un fisier DER cofnrm structurii PubKeyMac
 // .der (Distinguished Encoding Rules) binar utilizat pentru stocarea datelor criptografice.  (Nu poate fi citit direct intr-un editor de text, spre deosebire de .pem.)
 //cheile private si publice le salvez intr-un .pem
+
+
+
 
 void afiseaza_bytes(const char* nume, unsigned char* date, int lungime) {
     printf("%s: ", nume);
@@ -38,166 +41,243 @@ void afiseaza_bytes(const char* nume, unsigned char* date, int lungime) {
     printf("\n");
 }
 
+// Funcție simplă pentru procesarea fișierului de intrare
+int proceseaza_fisier_intrare(const char* nume_fisier) {
+    FILE* f = fopen(nume_fisier, "r");
+    if (!f) {
+        printf("Nu am putut deschide fisierul %s\n", nume_fisier);
+        return 1;
+    }
 
-int main() {
+    // Inițializăm jurnalul
     Jurnal* jurnal = Jurnal::obtine_instanta();
-    jurnal->seteaza_fisier("output/jurnal.bin");
+    jurnal->seteaza_fisier("info.log");
     jurnal->adauga_actiune("System", "Pornire aplicatie");
 
+    // Citim numărul de entități
+    int numar_entitati;
+    fscanf(f, "%d\n", &numar_entitati);
 
+    // Generăm chei pentru fiecare entitate
+    int id_entitate;
+    char parola[32];
 
+    for (int i = 0; i < numar_entitati; i++) {
+        fscanf(f, "%d %s\n", &id_entitate, parola);
 
-    printf("Director de lucru: %s\n", _getcwd(NULL, 0));
+        // Convertim ID-ul în string pentru a-l folosi în numele fișierelor
+        char id_str[16];
+        sprintf(id_str, "%d", id_entitate);
 
-    //test functionalitate 1 cu creare_salvare_chei
-    if (creeaza_salveaza_chei("Entitate1", "output/entitate1_cheie_privata.pem",
-        "output/entitate1_cheie_publica.pem",
-        "output/entitate1_mac.der") != 0) {
-        printf("Eroare la generarea cheilor pentru Entitate1\n");
-        return 1;
-    }
-    jurnal->adauga_actiune("Entitate1", "Generare chei EC");
+        // Generăm chei ECC
+        char nume_cheie_privata_ecc[32], nume_cheie_publica_ecc[32], nume_mac_ecc[32];
+        sprintf(nume_cheie_privata_ecc, "%d_priv.ecc", id_entitate);
+        sprintf(nume_cheie_publica_ecc, "%d_pub.ecc", id_entitate);
+        sprintf(nume_mac_ecc, "%d_ecc.mac", id_entitate);
 
-    if (creeaza_salveaza_chei("Entitate2", "output/entitate2_cheie_privata.pem",
-        "output/entitate2_cheie_publica.pem",
-        "output/entitate2_mac.der") != 0) {
-        printf("Eroare la generarea cheilor pentru Entitate2\n");
-        return 1;
-    }
-    jurnal->adauga_actiune("Entitate2", "Generare chei EC reusita");
+        if (creeaza_salveaza_chei(id_str, nume_cheie_privata_ecc, nume_cheie_publica_ecc, nume_mac_ecc) != 0) {
+            printf("Eroare la generarea cheilor ECC pentru Entitatea %d\n", id_entitate);
+            fclose(f);
+            return 1;
+        }
+        jurnal->adauga_actiune(id_str, "Generare chei EC reusita");
 
-    if (genereaza_salveaza_chei_rsa("Entitate1", "output/entitate1_cheie_privata_rsa.pem",
-        "output/entitate1_cheie_publica_rsa.pem") != 0) {
-        printf("Eroare la generarea cheilor RSA pentru Entitate1\n");
-        return 1;
-    }
-    jurnal->adauga_actiune("Entitate1", "Generare chei RSA reusita");
+        // Generăm chei RSA
+        char nume_cheie_privata_rsa[32], nume_cheie_publica_rsa[32];
+        sprintf(nume_cheie_privata_rsa, "%d_priv.rsa", id_entitate);
+        sprintf(nume_cheie_publica_rsa, "%d_pub.rsa", id_entitate);
 
-    if (genereaza_salveaza_chei_rsa("Entitate2", "output/entitate2_cheie_privata_rsa.pem",
-        "output/entitate2_cheie_publica_rsa.pem") != 0) {
-        printf("Eroare la generarea cheilor RSA pentru Entitate2\n");
-        return 1;
-    }
-    jurnal->adauga_actiune("Entitate2", "Generare chei RSA reusita");
-
-    //test functionalitate handshake
-    const char* entitate1 = "Entitate1";
-    const char* entitate2 = "Entitate2";
-    const char* parola = "parolamea2303";
-
-    std::string fisier_cheie_privata1 = "output/entitate1_cheie_privata.pem";
-    std::string fisier_cheie_publica1 = "output/entitate1_cheie_publica.pem";
-    std::string fisier_mac1 = "output/entitate1_mac.der";
-
-    std::string fisier_cheie_privata2 = "output/entitate2_cheie_privata.pem";
-    std::string fisier_cheie_publica2 = "output/entitate2_cheie_publica.pem";
-    std::string fisier_mac2 = "output/entitate2_mac.der";
-
-    printf("Verificam autenticitatea cheii publice a Entitatii 1...\n");
-    jurnal->adauga_actiune("System", "Verificare autenticitate cheie publica Entitate1");
-    if (verifica_autenticitate_cheie_publica(entitate1, fisier_cheie_publica1, fisier_mac1)) {
-        printf("OK\n");
-        jurnal->adauga_actiune("System", "Autenticitate cheie publica Entitate1 verificata cu succes");
-    }
-    else {
-        jurnal->adauga_actiune("System", "Eroare la verificarea autenticitatii cheii publice Entitate1");
-        printf("Fail autenticitate cheie publica entitate 1\n");
-        return 1;
+        if (genereaza_salveaza_chei_rsa(id_str, nume_cheie_privata_rsa, nume_cheie_publica_rsa) != 0) {
+            printf("Eroare la generarea cheilor RSA pentru Entitatea %d\n", id_entitate);
+            fclose(f);
+            return 1;
+        }
+        jurnal->adauga_actiune(id_str, "Generare chei RSA reusita");
     }
 
-    printf("Verificam autenticitatea cheii publice a Entitatii 2...\n");
-    jurnal->adauga_actiune("System", "Verificare autenticitate cheie publica Entitate2");
-    if (verifica_autenticitate_cheie_publica(entitate2, fisier_cheie_publica2, fisier_mac2)) {
-        printf("OK\n");
-        jurnal->adauga_actiune("System", "Autenticitate cheie publica Entitate2 verificata cu succes");
+    // Citim numărul de tranzacții
+    int numar_tranzactii;
+    fscanf(f, "%d\n", &numar_tranzactii);
+
+    // Procesăm fiecare tranzacție
+    int sym_counter = 1;  // Contor pentru elementele simetrice
+
+    for (int i = 0; i < numar_tranzactii; i++) {
+        char linie[2048];
+        fgets(linie, sizeof(linie), f);
+
+        // Variabile pentru datele din tranzacție
+        int id_tranzactie, id_sursa, id_dest;
+        char subiect[512], mesaj[1024];
+
+        // Parsăm linia în formatul: id_tranzacție/id_entitate_sursă/id_entitate_destinație/subiect/mesaj
+        sscanf(linie, "%d/%d/%d/%[^/]/%[^\n]",
+            &id_tranzactie,
+            &id_sursa,
+            &id_dest,
+            subiect,
+            mesaj);
+
+        // Convertim ID-urile în string
+        char id_sursa_str[16], id_dest_str[16];
+        sprintf(id_sursa_str, "%d", id_sursa);
+        sprintf(id_dest_str, "%d", id_dest);
+
+        // Verificăm autenticitatea cheilor
+        printf("\nVerificam autenticitatea cheii publice a Entitatii %s...\n", id_dest_str);
+        jurnal->adauga_actiune("System", "Verificare autenticitate cheie publica Entitate " + std::string(id_dest_str));
+
+        if (!verifica_autenticitate_cheie_publica(id_dest_str)) {
+            printf("Verificarea autenticitatii cheii publice ECC a entitatii %s a esuat\n", id_dest_str);
+            jurnal->adauga_actiune("System", "Eroare la verificarea autenticitatii cheii publice ECC Entitate " + std::string(id_dest_str));
+            continue;
+        }
+        printf("Autenticitatea cheii ECC verificata cu succes\n");
+        jurnal->adauga_actiune("System", "Autenticitate cheie publica ECC Entitate " + std::string(id_dest_str) + " verificata cu succes");
+
+        if (!verifica_autenticitate_cheie_publica_rsa(id_dest_str)) {
+            printf("Verificarea autenticitatii cheii publice RSA a entitatii %s a esuat\n", id_dest_str);
+            jurnal->adauga_actiune("System", "Eroare la verificarea autenticitatii cheii publice RSA Entitate " + std::string(id_dest_str));
+            continue;
+        }
+        printf("Autenticitatea cheii RSA verificata cu succes\n");
+        jurnal->adauga_actiune("System", "Autenticitate cheie publica RSA Entitate " + std::string(id_dest_str) + " verificata cu succes");
+
+        // Citim din nou fișierul pentru a găsi parola entității sursă
+        FILE* f_parole = fopen(nume_fisier, "r");
+        int nr_ent;
+        fscanf(f_parole, "%d\n", &nr_ent);
+
+        int id;
+        char parola_sursa[32];
+        bool parola_gasita = false;
+
+        for (int j = 0; j < nr_ent; j++) {
+            fscanf(f_parole, "%d %s\n", &id, parola_sursa);
+            if (id == id_sursa) {
+                parola_gasita = true;
+                break;
+            }
+        }
+        fclose(f_parole);
+
+        if (!parola_gasita) {
+            printf("Nu am gasit parola pentru entitatea %d\n", id_sursa);
+            continue;
+        }
+
+        // Efectuăm handshake ECDH
+        printf("\n=== Handshake ECDH si derivare chei simetrice ===\n");
+        jurnal->adauga_actiune("System", "Incepere handshake ECDH intre Entitate " + std::string(id_sursa_str) + " si Entitate " + std::string(id_dest_str));
+
+        // Încărcăm cheile pentru handshake
+        EVP_PKEY* cheie_privata_sursa = incarca_cheie_privata(id_sursa_str, parola_sursa);
+        EVP_PKEY* cheie_publica_dest = incarca_cheie_publica(id_dest_str);
+
+        if (!cheie_privata_sursa || !cheie_publica_dest) {
+            printf("Eroare la incarcarea cheilor pentru handshake\n");
+            jurnal->adauga_actiune("System", "Eroare la incarcarea cheilor pentru handshake");
+            if (cheie_privata_sursa) EVP_PKEY_free(cheie_privata_sursa);
+            if (cheie_publica_dest) EVP_PKEY_free(cheie_publica_dest);
+            continue;
+        }
+
+        // Efectuăm handshake și derivare chei
+        ElementeHandshake elemente;
+        if (handshake_ecdh_derivare_chei(cheie_privata_sursa, cheie_publica_dest, &elemente) != 0) {
+            printf("Eroare la handshake si derivarea cheilor\n");
+            jurnal->adauga_actiune("System", "Eroare la handshake ECDH si derivarea cheilor");
+            EVP_PKEY_free(cheie_privata_sursa);
+            EVP_PKEY_free(cheie_publica_dest);
+            continue;
+        }
+        jurnal->adauga_actiune(id_sursa_str, "Handshake ECDH cu Entitate " + std::string(id_dest_str) + " reusit");
+
+        // Afișăm elementele simetrice
+        afiseaza_bytes("SymLeft", elemente.sym_left, 16);
+        afiseaza_bytes("SymRight (primii 16 octeti)", elemente.sym_right, 16);
+        afiseaza_bytes("SymKey", elemente.sym_key, 16);
+
+        // Salvăm elementele simetrice
+        char nume_fisier_sym[32];
+        sprintf(nume_fisier_sym, "%d.sym", sym_counter);
+
+        jurnal->adauga_actiune("System", "Salvare elemente simetrice derivate din handshake");
+        if (salveaza_elemente_simetrice(sym_counter, &elemente, nume_fisier_sym) != 0) {
+            printf("Eroare la salvarea elementelor simetrice\n");
+            jurnal->adauga_actiune("System", "Eroare la salvarea elementelor simetrice");
+            EVP_PKEY_free(cheie_privata_sursa);
+            EVP_PKEY_free(cheie_publica_dest);
+            continue;
+        }
+        jurnal->adauga_actiune("System", "Elemente simetrice salvate cu succes");
+
+        EVP_PKEY_free(cheie_privata_sursa);
+        EVP_PKEY_free(cheie_publica_dest);
+
+        // Creăm tranzacția
+        printf("\n=== Creare tranzactie ===\n");
+        jurnal->adauga_actiune(id_sursa_str, "Incepere creare tranzactie pentru Entitate " + std::string(id_dest_str));
+
+        char nume_fisier_tranzactie[64];
+        sprintf(nume_fisier_tranzactie, "%d_%d_%d.trx", id_sursa, id_dest, id_tranzactie);
+
+        if (creeaza_tranzactie(id_tranzactie, subiect,
+            id_sursa, id_dest,
+            sym_counter,
+            (const unsigned char*)mesaj,
+            strlen(mesaj),
+            nume_fisier_tranzactie) != 0) {
+            printf("Eroare la crearea tranzactiei\n");
+            jurnal->adauga_actiune(id_sursa_str, "Eroare la crearea tranzactiei pentru Entitate " + std::string(id_dest_str));
+            continue;
+        }
+        jurnal->adauga_actiune(id_sursa_str, "Tranzactie #" + std::to_string(id_tranzactie) + " creata si semnata pentru Entitate " + std::string(id_dest_str));
+
+        // Decriptăm tranzacția
+        printf("\n=== Decriptare tranzactie ===\n");
+        jurnal->adauga_actiune(id_dest_str, "Incepere decriptare tranzactie #" + std::to_string(id_tranzactie) + " de la Entitate " + std::string(id_sursa_str));
+
+        unsigned char* date_decriptate = NULL;
+        int lungime_date_decriptate = 0;
+
+        if (decripteaza_tranzactie(nume_fisier_tranzactie, id_sursa_str, sym_counter,
+            &date_decriptate, &lungime_date_decriptate) != 0) {
+            printf("Eroare la decriptarea tranzactiei\n");
+            jurnal->adauga_actiune(id_dest_str, "Eroare la decriptarea tranzactiei #" + std::to_string(id_tranzactie));
+            continue;
+        }
+        jurnal->adauga_actiune(id_dest_str, "Tranzactie #" + std::to_string(id_tranzactie) + " decriptata si verificata cu succes");
+
+        printf("Mesaj decriptat: %.*s\n", lungime_date_decriptate, date_decriptate);
+        OPENSSL_free(date_decriptate);
+
+        // Incrementăm contorul pentru următoarele elemente simetrice
+        sym_counter++;
     }
-    else {
-        printf("Fail autenticitate cheie publica entitate 2\n");
-        jurnal->adauga_actiune("System", "Eroare la verificarea autenticitatii cheii publice Entitate2");
-        return 1;
-    }
 
-    // ECDH handshake and key derivation
-    printf("\n=== Handshake ECDH si derivare chei simetrice ===\n");
-    jurnal->adauga_actiune("System", "Incepere handshake ECDH intre Entitate1 si Entitate2");
+    fclose(f);
 
-    EVP_PKEY* cheie_privata1 = incarca_cheie_privata(fisier_cheie_privata1, parola);
-    EVP_PKEY* cheie_publica2 = incarca_cheie_publica(fisier_cheie_publica2);
-
-    if (!cheie_privata1 || !cheie_publica2) {
-        printf("Eroare la incarcarea cheilor\n");
-        jurnal->adauga_actiune("System", "Eroare la incarcarea cheilor pentru handshake");
-        if (cheie_privata1) EVP_PKEY_free(cheie_privata1);
-        if (cheie_publica2) EVP_PKEY_free(cheie_publica2);
-        return 1;
-    }
-
-    ElementeHandshake elemente;
-    if (handshake_ecdh_derivare_chei(cheie_privata1, cheie_publica2, &elemente) != 0) {
-        printf("Eroare la handshake si derivarea cheilor\n");
-        jurnal->adauga_actiune("System", "Eroare la handshake ECDH si derivarea cheilor");
-        EVP_PKEY_free(cheie_privata1);
-        EVP_PKEY_free(cheie_publica2);
-        return 1;
-    }
-    jurnal->adauga_actiune("Entitate1", "Handshake ECDH cu Entitate2 reusit");
-
-    afiseaza_bytes("SymLeft", elemente.sym_left, 16);
-    afiseaza_bytes("SymRight (primii 16 octeti)", elemente.sym_right, 16);
-    afiseaza_bytes("SymKey", elemente.sym_key, 16);
-
-    jurnal->adauga_actiune("System", "Salvare elemente simetrice derivate din handshake");
-    if (salveaza_elemente_simetrice(1, &elemente, "output/sym_elements_1.base64") != 0) {
-        printf("Eroare la salvarea elementelor simetrice\n");
-        jurnal->adauga_actiune("System", "Eroare la salvarea elementelor simetrice");
-        EVP_PKEY_free(cheie_privata1);
-        EVP_PKEY_free(cheie_publica2);
-        return 1;
-    }
-    jurnal->adauga_actiune("System", "Elemente simetrice salvate cu succes");
-
-    EVP_PKEY_free(cheie_privata1);
-    EVP_PKEY_free(cheie_publica2);
-
-    printf("Handshake si derivare chei finalizate cu succes!\n");
-
-    // Test transaction creation
-    printf("\n=== Creare tranzactiei ===\n");
-    jurnal->adauga_actiune("Entitate1", "Incepere creare tranzactie pentru Entitate2");
-
-    const char* mesaj_text = "Aceasta este o tranzactie de test de la Entitate1 la Entitate2.";
-    if (creeaza_tranzactie(1, "Tranzactie de test", 1, 2, 1,
-        (const unsigned char*)mesaj_text, strlen(mesaj_text),
-        "output/entitate1_cheie_privata_rsa.pem",
-        "output/tranzactie_1.der") != 0) {
-        printf("Eroare la crearea tranzactiei\n");
-        jurnal->adauga_actiune("Entitate1", "Eroare la crearea tranzactiei pentru Entitate2");
-        return 1;
-    }
-    jurnal->adauga_actiune("Entitate1", "Tranzactie #1 creata si semnata pentru Entitate2");
-
-    // Test transaction decryption
-    printf("\n=== Decriptare tranzactie ===\n");
-    jurnal->adauga_actiune("Entitate2", "Incepere decriptare tranzactie #1 de la Entitate1");
-
-    unsigned char* date_decriptate = NULL;
-    int lungime_date_decriptate = 0;
-
-    if (decripteaza_tranzactie("output/tranzactie_1.der",
-        "output/entitate1_cheie_publica_rsa.pem",
-        1, &date_decriptate, &lungime_date_decriptate) != 0) {
-        printf("Eroare la decriptarea tranzactiei\n");
-        jurnal->adauga_actiune("Entitate2", "Eroare la decriptarea tranzactiei #1");
-        return 1;
-    }
-    jurnal->adauga_actiune("Entitate2", "Tranzactie #1 decriptata si verificata cu succes");
-
-    printf("Mesaj decriptat: %.*s\n", lungime_date_decriptate, date_decriptate);
-    OPENSSL_free(date_decriptate);
-
-    printf("\nToate testele au fost finalizate cu succes!\n");
-    jurnal->adauga_actiune("System", "Toate testele au fost finalizate cu succes");
-
+    printf("\nToate operatiunile au fost finalizate cu succes!\n");
+    jurnal->adauga_actiune("System", "Toate operatiunile au fost finalizate cu succes");
     Jurnal::elibereaza();
+
+    return 0;
+}
+
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        printf("Utilizare: %s <fisier_intrare> [<fisier_intrare2> ...]\n", argv[0]);
+        return 1;
+    }
+
+    for (int i = 1; i < argc; i++) {
+        printf("Procesare fisier: %s\n", argv[i]);
+        if (proceseaza_fisier_intrare(argv[i]) != 0) {
+            printf("Eroare la procesarea fisierului: %s\n", argv[i]);
+            return 1;
+        }
+    }
+
     return 0;
 }

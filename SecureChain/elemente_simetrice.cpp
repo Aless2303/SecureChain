@@ -7,8 +7,6 @@
 #include <stdio.h>
 #include <string.h>
 
-
-
 //fct pentru codificarea base64
 int codifica_base64(unsigned char* input, int lungime, unsigned char** output, int* lungime_output) {
     BIO* b64 = BIO_new(BIO_f_base64());
@@ -45,14 +43,16 @@ int codifica_base64(unsigned char* input, int lungime, unsigned char** output, i
 }
 
 int salveaza_elemente_simetrice(int sym_elements_id, ElementeHandshake* elemente, const std::string& fisier_output) {
-    
+    // Noul format pentru numele fișierului
+    char nume_fisier[256];
+    sprintf(nume_fisier, "%d.sym", sym_elements_id);
+
     //creez structura syselements
     SymElements* sym_elements = SymElements_new();
     if (!sym_elements) {
         printf("Eroare la crearea structurii SymElements\n");
         return 1;
     }
-
 
     //seteaza symelementsID
     if (!ASN1_INTEGER_set(sym_elements->SymElementsID, sym_elements_id)) {
@@ -61,20 +61,16 @@ int salveaza_elemente_simetrice(int sym_elements_id, ElementeHandshake* elemente
         return 1;
     }
 
-
-    //setez symkey (16 octeti)
+    //setez symkey (16 octeti pentru AES-128)
     if (!ASN1_OCTET_STRING_set(sym_elements->SymKey, elemente->sym_key, 16)) {
         printf("Eroare la setarea SymKey\n");
         SymElements_free(sym_elements);
         return 1;
     }
 
-
     //extrag iv-ul (primii 16 octeti din symright din octetii neutilizati)
     unsigned char iv[16];
     memcpy(iv, elemente->sym_right + 16, 16); //incepe de la 16
-
-
 
     //setez iv
     if (!ASN1_OCTET_STRING_set(sym_elements->IV, iv, 16)) {
@@ -82,7 +78,6 @@ int salveaza_elemente_simetrice(int sym_elements_id, ElementeHandshake* elemente
         SymElements_free(sym_elements);
         return 1;
     }
-
 
     //codific in der
     unsigned char* date_der = nullptr;
@@ -92,7 +87,6 @@ int salveaza_elemente_simetrice(int sym_elements_id, ElementeHandshake* elemente
         SymElements_free(sym_elements);
         return 1;
     }
-
 
     //codific in base64
     unsigned char* date_base64 = nullptr;
@@ -104,11 +98,10 @@ int salveaza_elemente_simetrice(int sym_elements_id, ElementeHandshake* elemente
         return 1;
     }
 
-
     //salvez in fisier
-    BIO* bio = BIO_new_file(fisier_output.c_str(), "w");
+    BIO* bio = BIO_new_file(nume_fisier, "w");
     if (!bio) {
-        printf("Eroare la deschiderea fișierului %s\n", fisier_output.c_str());
+        printf("Eroare la deschiderea fișierului %s\n", nume_fisier);
         ERR_print_errors_fp(stderr);
         OPENSSL_free(date_der);
         OPENSSL_free(date_base64);

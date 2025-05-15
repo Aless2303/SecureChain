@@ -10,11 +10,15 @@
 #include <stdio.h>
 #include <string.h>
 
-//fct pentru incarcarea unei chei private din fisierul pem
-EVP_PKEY* incarca_cheie_privata(const std::string& fisier_cheie_privata, const char* parola) {
-    BIO* bio = BIO_new_file(fisier_cheie_privata.c_str(), "r");
+//fct pentru incarcarea unei chei private ECC din fisierul pem
+EVP_PKEY* incarca_cheie_privata(const std::string& id_entitate, const char* parola) {
+    // Formez numele fișierului corect
+    char nume_fisier[256];
+    sprintf(nume_fisier, "%s_priv.ecc", id_entitate.c_str());
+
+    BIO* bio = BIO_new_file(nume_fisier, "r");
     if (!bio) {
-        printf("eroare la deschiderea fisier %s: ", fisier_cheie_privata.c_str());
+        printf("eroare la deschiderea fisier %s: ", nume_fisier);
         ERR_print_errors_fp(stderr);
         return nullptr;
     }
@@ -31,11 +35,15 @@ EVP_PKEY* incarca_cheie_privata(const std::string& fisier_cheie_privata, const c
     return cheie_privata;
 }
 
-//fct pentr incarcarea unei chei publice din fisierul pem
-EVP_PKEY* incarca_cheie_publica(const std::string& fisier_cheie_publica) {
-    BIO* bio = BIO_new_file(fisier_cheie_publica.c_str(), "r");
+//fct pentru incarcarea unei chei publice ECC din fisierul pem
+EVP_PKEY* incarca_cheie_publica(const std::string& id_entitate) {
+    // Formez numele fișierului corect
+    char nume_fisier[256];
+    sprintf(nume_fisier, "%s_pub.ecc", id_entitate.c_str());
+
+    BIO* bio = BIO_new_file(nume_fisier, "r");
     if (!bio) {
-        printf("eroare la deschiderea fisier %s: ", fisier_cheie_publica.c_str());
+        printf("eroare la deschiderea fisier %s: ", nume_fisier);
         ERR_print_errors_fp(stderr);
         return nullptr;
     }
@@ -52,13 +60,83 @@ EVP_PKEY* incarca_cheie_publica(const std::string& fisier_cheie_publica) {
     return cheie_publica;
 }
 
+// Funcție pentru încărcarea cheii private RSA
+RSA* incarca_cheie_privata_rsa(const std::string& id_entitate, const char* parola) {
+    // Formez numele fișierului corect
+    char nume_fisier[256];
+    sprintf(nume_fisier, "%s_priv.rsa", id_entitate.c_str());
+
+    BIO* bio = BIO_new_file(nume_fisier, "r");
+    if (!bio) {
+        printf("eroare la deschiderea fisier %s: ", nume_fisier);
+        ERR_print_errors_fp(stderr);
+        return nullptr;
+    }
+
+    RSA* cheie_privata = PEM_read_bio_RSAPrivateKey(bio, nullptr, nullptr, (void*)parola);
+    if (!cheie_privata) {
+        printf("eroare la citirea cheii private RSA: ");
+        ERR_print_errors_fp(stderr);
+        BIO_free_all(bio);
+        return nullptr;
+    }
+
+    BIO_free_all(bio);
+    return cheie_privata;
+}
+
+// Funcție pentru încărcarea cheii publice RSA
+EVP_PKEY* incarca_cheie_publica_rsa(const std::string& id_entitate) {
+    // Formez numele fișierului corect
+    char nume_fisier[256];
+    sprintf(nume_fisier, "%s_pub.rsa", id_entitate.c_str());
+
+    BIO* bio = BIO_new_file(nume_fisier, "r");
+    if (!bio) {
+        printf("eroare la deschiderea fisier %s: ", nume_fisier);
+        ERR_print_errors_fp(stderr);
+        return nullptr;
+    }
+
+    RSA* rsa_key = PEM_read_bio_RSAPublicKey(bio, nullptr, nullptr, nullptr);
+    if (!rsa_key) {
+        printf("eroare la citirea cheii publice RSA: ");
+        ERR_print_errors_fp(stderr);
+        BIO_free_all(bio);
+        return nullptr;
+    }
+
+    // Convertesc RSA* la EVP_PKEY*
+    EVP_PKEY* cheie_publica = EVP_PKEY_new();
+    if (!EVP_PKEY_set1_RSA(cheie_publica, rsa_key)) {
+        printf("eroare la convertirea RSA la EVP_PKEY: ");
+        ERR_print_errors_fp(stderr);
+        RSA_free(rsa_key);
+        BIO_free_all(bio);
+        return nullptr;
+    }
+
+    RSA_free(rsa_key);
+    BIO_free_all(bio);
+    return cheie_publica;
+}
 
 //fct pentru extragerea mac-ului din fisierul der.
-int extrage_mac_din_fisier(const std::string& fisier_mac, unsigned char** cheie_mac,
+int extrage_mac_din_fisier(const std::string& id_entitate, bool is_rsa, unsigned char** cheie_mac,
     unsigned char** valoare_mac, size_t* lungime_cheie, size_t* lungime_valoare) {
-    FILE* f = fopen(fisier_mac.c_str(), "rb");
+
+    // Formez numele fișierului corect
+    char nume_fisier[256];
+    if (is_rsa) {
+        sprintf(nume_fisier, "%s_rsa.mac", id_entitate.c_str());
+    }
+    else {
+        sprintf(nume_fisier, "%s_ecc.mac", id_entitate.c_str());
+    }
+
+    FILE* f = fopen(nume_fisier, "rb");
     if (!f) {
-        printf("eroare la deschiderea fisierului MAC %s\n", fisier_mac.c_str());
+        printf("eroare la deschiderea fisierului MAC %s\n", nume_fisier);
         return 1;
     }
 
@@ -84,7 +162,6 @@ int extrage_mac_din_fisier(const std::string& fisier_mac, unsigned char** cheie_
 
     fclose(f);
 
-
     //parsez datele der pentru a obtine structura facuta cu Asn1. PubKeyMac
     const unsigned char* p = date_der;
     PubKeyMac* mac_structura = d2i_PubKeyMac(nullptr, &p, lungime_fisier);
@@ -93,7 +170,6 @@ int extrage_mac_din_fisier(const std::string& fisier_mac, unsigned char** cheie_
         OPENSSL_free(date_der);
         return 1;
     }
-
 
     //extrag cheia mac si valoarea mac
     *lungime_cheie = ASN1_STRING_length(mac_structura->MACKey);
@@ -120,7 +196,6 @@ int extrage_mac_din_fisier(const std::string& fisier_mac, unsigned char** cheie_
     return 0;
 }
 
-
 //fct pentru obtinerea formatului der si al cheii publice
 unsigned char* obtine_cheie_publica_der(EVP_PKEY* cheie_publica, int* lungime_der) {
     unsigned char* cheie_publica_der = nullptr;
@@ -133,7 +208,6 @@ unsigned char* obtine_cheie_publica_der(EVP_PKEY* cheie_publica, int* lungime_de
 
     return cheie_publica_der;
 }
-
 
 //fct pentru recalcularea gmac pentru verificarea autentificatii
 int recalculeaza_gmac(unsigned char* cheie_mac, size_t lungime_cheie_mac,
@@ -149,13 +223,12 @@ int recalculeaza_gmac(unsigned char* cheie_mac, size_t lungime_cheie_mac,
     }
     printf("\n");
 
-
     // Vector de inițializare pentru GMAC (12 zerouri)
     unsigned char iv[12] = { 0 };  // IV umplut cu zerouri
 
     // param pentru GMAC, cu IV adăugat explicit
     OSSL_PARAM parametri[3];
-    parametri[0] = OSSL_PARAM_construct_utf8_string("cipher", (char*)"AES-256-GCM", 0);
+    parametri[0] = OSSL_PARAM_construct_utf8_string("cipher", (char*)"AES-128-GCM", 0); // Actualizat pentru AES-128
     // Adăugăm parametrul IV folosind denumirea exactă din OpenSSL
     parametri[1] = OSSL_PARAM_construct_octet_string("iv", iv, sizeof(iv));
     parametri[2] = OSSL_PARAM_construct_end();
@@ -173,7 +246,7 @@ int recalculeaza_gmac(unsigned char* cheie_mac, size_t lungime_cheie_mac,
     // initializez MAC-ul
     if (!EVP_MAC_init(context_mac, cheie_mac, lungime_cheie_mac, parametri)) {
         printf("eroare la initializarea GMAC: ");
-        ERR_print_errors_fp(stderr);  // Afișăm eroarea exactă
+        ERR_print_errors_fp(stderr);
         EVP_MAC_CTX_free(context_mac);
         EVP_MAC_free(mac);
         return 1;
@@ -207,18 +280,14 @@ int recalculeaza_gmac(unsigned char* cheie_mac, size_t lungime_cheie_mac,
     return 0;
 }
 
-
-
-//fct pentru verificarea autenticitatii unei chei publice cu ajutorul  mac-ului
-int verifica_autenticitate_cheie_publica(const std::string& nume_entitate,
-    const std::string& fisier_cheie_publica,
-    const std::string& fisier_mac) {
-    // incarc cheia publica
-    EVP_PKEY* cheie_publica = incarca_cheie_publica(fisier_cheie_publica);
+//fct pentru verificarea autenticitatii unei chei publice ECC cu ajutorul mac-ului
+int verifica_autenticitate_cheie_publica(const std::string& id_entitate) {
+    // incarc cheia publica ECC
+    EVP_PKEY* cheie_publica = incarca_cheie_publica(id_entitate);
     if (!cheie_publica) {
         return 0;
     }
-    printf("am incarcat cheia publica\n");
+    printf("am incarcat cheia publica ECC\n");
 
     //convertesc cheia in format der
     int lungime_der;
@@ -228,19 +297,19 @@ int verifica_autenticitate_cheie_publica(const std::string& nume_entitate,
         return 0;
     }
 
-    printf("am incarcat convertit cheia in format der\n");
+    printf("am convertit cheia ECC in format der\n");
 
-    //extrafg mac-ul din fisire
+    //extrag mac-ul din fisire
     unsigned char* cheie_mac = nullptr;
     unsigned char* valoare_mac = nullptr;
     size_t lungime_cheie_mac, lungime_valoare_mac;
 
-    if (extrage_mac_din_fisier(fisier_mac, &cheie_mac, &valoare_mac, &lungime_cheie_mac, &lungime_valoare_mac) != 0) {
+    if (extrage_mac_din_fisier(id_entitate, false, &cheie_mac, &valoare_mac, &lungime_cheie_mac, &lungime_valoare_mac) != 0) {
         OPENSSL_free(cheie_publica_der);
         EVP_PKEY_free(cheie_publica);
         return 0;
     }
-    printf("Valoare MAC din fisier: ");
+    printf("Valoare MAC din fisier pentru ECC: ");
     for (size_t i = 0; i < lungime_valoare_mac; i++) {
         printf("%02x", valoare_mac[i]);
     }
@@ -258,17 +327,85 @@ int verifica_autenticitate_cheie_publica(const std::string& nume_entitate,
         EVP_PKEY_free(cheie_publica);
         return 0;
     }
-    printf("am recalculat gmac pentru verificare\n");
+    printf("am recalculat gmac pentru verificare ECC\n");
 
     int rezultat = 0;
     if (lungime_valoare_mac_calculata == lungime_valoare_mac &&
         memcmp(valoare_mac_calculata, valoare_mac, lungime_valoare_mac_calculata) == 0) {
         rezultat = 1; // MAC-urile coincid, cheia este buna
 
-        printf("mac-urile coincid\n");
+        printf("mac-urile coincid pentru ECC\n");
     }
     else {
-        printf("mac-urile nu coincid\n");
+        printf("mac-urile nu coincid pentru ECC\n");
+    }
+
+    OPENSSL_free(cheie_mac);
+    OPENSSL_free(valoare_mac);
+    OPENSSL_free(cheie_publica_der);
+    EVP_PKEY_free(cheie_publica);
+
+    return rezultat;
+}
+
+//fct pentru verificarea autenticitatii unei chei publice RSA cu ajutorul mac-ului
+int verifica_autenticitate_cheie_publica_rsa(const std::string& id_entitate) {
+    // incarc cheia publica RSA
+    EVP_PKEY* cheie_publica = incarca_cheie_publica_rsa(id_entitate);
+    if (!cheie_publica) {
+        return 0;
+    }
+    printf("am incarcat cheia publica RSA\n");
+
+    //convertesc cheia in format der
+    int lungime_der;
+    unsigned char* cheie_publica_der = obtine_cheie_publica_der(cheie_publica, &lungime_der);
+    if (!cheie_publica_der) {
+        EVP_PKEY_free(cheie_publica);
+        return 0;
+    }
+
+    printf("am convertit cheia RSA in format der\n");
+
+    //extrag mac-ul din fisier
+    unsigned char* cheie_mac = nullptr;
+    unsigned char* valoare_mac = nullptr;
+    size_t lungime_cheie_mac, lungime_valoare_mac;
+
+    if (extrage_mac_din_fisier(id_entitate, true, &cheie_mac, &valoare_mac, &lungime_cheie_mac, &lungime_valoare_mac) != 0) {
+        OPENSSL_free(cheie_publica_der);
+        EVP_PKEY_free(cheie_publica);
+        return 0;
+    }
+    printf("Valoare MAC din fisier pentru RSA: ");
+    for (size_t i = 0; i < lungime_valoare_mac; i++) {
+        printf("%02x", valoare_mac[i]);
+    }
+    printf("\n");
+
+    //recalculez gmac pentru verificare
+    unsigned char valoare_mac_calculata[16];
+    size_t lungime_valoare_mac_calculata = sizeof(valoare_mac_calculata);
+
+    if (recalculeaza_gmac(cheie_mac, lungime_cheie_mac, cheie_publica_der, lungime_der,
+        valoare_mac_calculata, &lungime_valoare_mac_calculata) != 0) {
+        OPENSSL_free(cheie_mac);
+        OPENSSL_free(valoare_mac);
+        OPENSSL_free(cheie_publica_der);
+        EVP_PKEY_free(cheie_publica);
+        return 0;
+    }
+    printf("am recalculat gmac pentru verificare RSA\n");
+
+    int rezultat = 0;
+    if (lungime_valoare_mac_calculata == lungime_valoare_mac &&
+        memcmp(valoare_mac_calculata, valoare_mac, lungime_valoare_mac_calculata) == 0) {
+        rezultat = 1; // MAC-urile coincid, cheia este buna
+
+        printf("mac-urile coincid pentru RSA\n");
+    }
+    else {
+        printf("mac-urile nu coincid pentru RSA\n");
     }
 
     OPENSSL_free(cheie_mac);

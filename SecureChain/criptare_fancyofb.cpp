@@ -1,4 +1,5 @@
-﻿#include "criptare_fancyofb.h"
+﻿// Versiunea actualizată pentru AES-128-FancyOFB
+#include "criptare_fancyofb.h"
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include <stdio.h>
@@ -20,9 +21,9 @@ int cripteaza_fancyofb(unsigned char* date, int lungime_date, unsigned char* sym
         inv_iv[i] = iv[15 - i]; //inversez ordinea octetilor
     }
 
-    //initializez criptarea cu AES-256-OFB
-    if (!EVP_EncryptInit_ex(ctx, EVP_aes_256_ofb(), NULL, sym_key, iv)) {
-        printf("Eroare la initializarea AES-256-OFB\n");
+    //initializez criptarea cu AES-128-OFB (modificat de la AES-256-OFB)
+    if (!EVP_EncryptInit_ex(ctx, EVP_aes_128_ofb(), NULL, sym_key, iv)) {
+        printf("Eroare la initializarea AES-128-OFB\n");
         ERR_print_errors_fp(stderr);
         EVP_CIPHER_CTX_free(ctx);
         return 1;

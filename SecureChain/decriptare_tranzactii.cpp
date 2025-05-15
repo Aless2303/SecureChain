@@ -10,37 +10,30 @@
 #include <stdio.h>
 #include <string.h>
 
-
-
-
-//functie de decriptare folosind fancyofb
+// Funcție de decriptare folosind FancyOFB
 int decripteaza_fancyofb(unsigned char* date_criptate, int lungime_date_criptate,
     unsigned char* sym_key, unsigned char* iv,
     unsigned char** date_decriptate, int* lungime_date_decriptate) {
 
-
-    //initializarea aes context
+    // Inițializarea AES context
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     if (!ctx) {
         printf("Eroare la crearea contextului AES pentru decriptare\n");
         return 1;
     }
 
-    //creez inv_IV 
+    // Creare inv_IV
     unsigned char inv_iv[16];
     for (int i = 0; i < 16; i++) {
-        inv_iv[i] = iv[15 - i]; //fac reverse
+        inv_iv[i] = iv[15 - i]; // Reverse
     }
 
-
-
-    //initializarea decriptarii cu aes-256-ofb
-    if (!EVP_DecryptInit_ex(ctx, EVP_aes_256_ofb(), NULL, sym_key, iv)) {
-        printf("Eroare la initializarea AES-256-OFB pentru decriptare\n");
+    // Inițializarea decriptării cu AES-128-OFB
+    if (!EVP_DecryptInit_ex(ctx, EVP_aes_128_ofb(), NULL, sym_key, iv)) {
+        printf("Eroare la initializarea AES-128-OFB pentru decriptare\n");
         EVP_CIPHER_CTX_free(ctx);
         return 1;
     }
-
 
     *date_decriptate = (unsigned char*)OPENSSL_malloc(lungime_date_criptate);
     if (!*date_decriptate) {
@@ -48,7 +41,6 @@ int decripteaza_fancyofb(unsigned char* date_criptate, int lungime_date_criptate
         EVP_CIPHER_CTX_free(ctx);
         return 1;
     }
-
 
     unsigned char* date_intermediare = (unsigned char*)OPENSSL_malloc(lungime_date_criptate);
     if (!date_intermediare) {
@@ -58,7 +50,7 @@ int decripteaza_fancyofb(unsigned char* date_criptate, int lungime_date_criptate
         return 1;
     }
 
-    //xor cu inv_iv pentru a reface modificarea fancyofb
+    // XOR cu inv_iv pentru a reface modificarea FancyOFB
     for (int i = 0; i < lungime_date_criptate; i++) {
         date_intermediare[i] = date_criptate[i] ^ inv_iv[i % 16];
     }
@@ -66,7 +58,7 @@ int decripteaza_fancyofb(unsigned char* date_criptate, int lungime_date_criptate
     int lungime_temp = 0;
     *lungime_date_decriptate = 0;
 
-    //decriptez cu ofb.
+    // Decriptare cu OFB
     if (!EVP_DecryptUpdate(ctx, *date_decriptate, &lungime_temp, date_intermediare, lungime_date_criptate)) {
         printf("Eroare la decriptarea datelor\n");
         OPENSSL_free(date_intermediare);
@@ -76,8 +68,7 @@ int decripteaza_fancyofb(unsigned char* date_criptate, int lungime_date_criptate
     }
     *lungime_date_decriptate += lungime_temp;
 
-
-    //finalizez decriptarea
+    // Finalizare decriptare
     if (!EVP_DecryptFinal_ex(ctx, *date_decriptate + *lungime_date_decriptate, &lungime_temp)) {
         printf("Eroare la finalizarea decriptarii\n");
         OPENSSL_free(date_intermediare);
@@ -93,63 +84,74 @@ int decripteaza_fancyofb(unsigned char* date_criptate, int lungime_date_criptate
     return 0;
 }
 
-
-//verificarea semnaturii rsa 
+// Verificarea semnăturii RSA
 int verifica_semnatura_rsa(const unsigned char* date, int lungime_date,
     const unsigned char* semnatura, int lungime_semnatura,
-    const std::string& fisier_cheie_publica_rsa) {
+    const std::string& id_sender) {
 
-    BIO* bio = BIO_new_file(fisier_cheie_publica_rsa.c_str(), "r");
+    // Obținem calea către fișierul cu cheia publică RSA
+    char nume_fisier[256];
+    sprintf(nume_fisier, "%s_pub.rsa", id_sender.c_str());
+
+    BIO* bio = BIO_new_file(nume_fisier, "r");
     if (!bio) {
         printf("Eroare la deschiderea fisierului cu cheia publica RSA: %s\n",
-            fisier_cheie_publica_rsa.c_str());
+            nume_fisier);
         return 0;
     }
 
-    EVP_PKEY* pkey = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
+    RSA* rsa_key = PEM_read_bio_RSAPublicKey(bio, NULL, NULL, NULL);
     BIO_free_all(bio);
 
-    if (!pkey) {
+    if (!rsa_key) {
         printf("Eroare la incarcarea cheii publice RSA\n");
         return 0;
     }
 
+    // Convertim RSA* în EVP_PKEY*
+    EVP_PKEY* pkey = EVP_PKEY_new();
+    if (!EVP_PKEY_set1_RSA(pkey, rsa_key)) {
+        printf("Eroare la conversia RSA la EVP_PKEY\n");
+        RSA_free(rsa_key);
+        return 0;
+    }
 
-    //creez contextul pentru verificarea semnaturii
+    // Creem contextul pentru verificarea semnăturii
     EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
     if (!md_ctx) {
         printf("Eroare la crearea contextului pentru verificarea semnaturii\n");
         EVP_PKEY_free(pkey);
+        RSA_free(rsa_key);
         return 0;
     }
 
-
-    //initializarea operatiei de verificare
+    // Inițializarea operației de verificare
     if (EVP_DigestVerifyInit(md_ctx, NULL, EVP_sha256(), NULL, pkey) != 1) {
         printf("Eroare la initializarea operatiei de verificare\n");
         EVP_MD_CTX_free(md_ctx);
         EVP_PKEY_free(pkey);
+        RSA_free(rsa_key);
         return 0;
     }
 
-    
-    //verific datele
+    // Verificăm datele
     if (EVP_DigestVerifyUpdate(md_ctx, date, lungime_date) != 1) {
         printf("Eroare la actualizarea operatiei de verificare\n");
         EVP_MD_CTX_free(md_ctx);
         EVP_PKEY_free(pkey);
+        RSA_free(rsa_key);
         return 0;
     }
 
-
-    //verificarea semnaturii
+    // Verificarea semnăturii
     int rezultat = EVP_DigestVerifyFinal(md_ctx, semnatura, lungime_semnatura);
 
     EVP_MD_CTX_free(md_ctx);
     EVP_PKEY_free(pkey);
+    RSA_free(rsa_key);
 
     if (rezultat == 1) {
-        printf("semnatura RSA verificata cu succes\n");
+        printf("Semnatura RSA verificata cu succes\n");
         return 1;
     }
     else {
@@ -159,10 +161,9 @@ int verifica_semnatura_rsa(const unsigned char* date, int lungime_date,
 }
 
 int decripteaza_tranzactie(const std::string& fisier_tranzactie,
-    const std::string& fisier_cheie_publica_sender,
+    const std::string& id_sender,
     int sym_elements_id,
     unsigned char** date_decriptate, int* lungime_date_decriptate) {
-
 
     FILE* fp = fopen(fisier_tranzactie.c_str(), "rb");
     if (!fp) {
@@ -201,17 +202,13 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
 
     printf("    incarca_elemente_simetrice: lungime fisier=%d\n", lungime_fisier);
 
-    //------------------------------------------
-
-
+    // Citirea tranzacției
     BIO* bio = BIO_new_file(fisier_tranzactie.c_str(), "rb");
     if (!bio) {
         printf("Eroare la deschiderea fisierului de tranzactie: %s\n", fisier_tranzactie.c_str());
         return 1;
     }
 
-
-    
     unsigned char* date_der = (unsigned char*)OPENSSL_malloc(lungime_fisier);
     if (!date_der) {
         printf("Eroare la alocarea memoriei pentru datele DER\n");
@@ -228,7 +225,6 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
     }
     BIO_free_all(bio);
 
-
     const unsigned char* p = date_der;
     Transaction* tranzactie = d2i_Transaction(NULL, &p, bytes_cititi);
     if (!tranzactie) {
@@ -237,7 +233,7 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
         return 1;
     }
 
-    //extrag detaliile tranzactiei
+    // Extrag detaliile tranzacției
     int transaction_id = ASN1_INTEGER_get(tranzactie->TransactionID);
     int sender_id = ASN1_INTEGER_get(tranzactie->SenderID);
     int receiver_id = ASN1_INTEGER_get(tranzactie->ReceiverID);
@@ -246,8 +242,7 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
     printf("Decriptez tranzactia #%d de la %d la %d (SymElementsID: %d)\n",
         transaction_id, sender_id, receiver_id, tranzactie_sym_id);
 
-
-    //verific daca corespund datele din symelementsid
+    // Verific dacă corespund datele din symElementsID
     if (tranzactie_sym_id != sym_elements_id) {
         printf("ID-ul elementelor simetrice din tranzactie (%d) nu corespunde cu cel asteptat (%d)\n",
             tranzactie_sym_id, sym_elements_id);
@@ -255,7 +250,6 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
         OPENSSL_free(date_der);
         return 1;
     }
-
 
     Transaction* tranzactie_temp = Transaction_new();
     if (!tranzactie_temp) {
@@ -265,20 +259,18 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
         return 1;
     }
 
-
-    //copiez tot fara semnatura;
+    // Copiez tot fără semnătură
     ASN1_INTEGER_set(tranzactie_temp->TransactionID, transaction_id);
     ASN1_STRING_set(tranzactie_temp->Subject,
-    ASN1_STRING_get0_data(tranzactie->Subject),
-    ASN1_STRING_length(tranzactie->Subject));
+        ASN1_STRING_get0_data(tranzactie->Subject),
+        ASN1_STRING_length(tranzactie->Subject));
     ASN1_INTEGER_set(tranzactie_temp->SenderID, sender_id);
     ASN1_INTEGER_set(tranzactie_temp->ReceiverID, receiver_id);
     ASN1_INTEGER_set(tranzactie_temp->SymElementsID, tranzactie_sym_id);
     ASN1_STRING_set(tranzactie_temp->EncryptedData,
-    ASN1_STRING_get0_data(tranzactie->EncryptedData),
-    ASN1_STRING_length(tranzactie->EncryptedData));
-    //las transactionsign gol
-
+        ASN1_STRING_get0_data(tranzactie->EncryptedData),
+        ASN1_STRING_length(tranzactie->EncryptedData));
+    // Las TransactionSign gol
 
     unsigned char* temp_der = NULL;
     int lungime_temp_der = i2d_Transaction(tranzactie_temp, &temp_der);
@@ -293,8 +285,8 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
     if (!verifica_semnatura_rsa(temp_der, lungime_temp_der,
         ASN1_STRING_get0_data(tranzactie->TransactionSign),
         ASN1_STRING_length(tranzactie->TransactionSign),
-        fisier_cheie_publica_sender)) {
-        printf("semnatura tranzactiei nu a putut fi verificata\n");
+        id_sender)) {
+        printf("Semnatura tranzactiei nu a putut fi verificata\n");
         OPENSSL_free(temp_der);
         Transaction_free(tranzactie_temp);
         Transaction_free(tranzactie);
@@ -302,12 +294,10 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
         return 1;
     }
 
-
-
-    //incarc elementele simetrice
+    // Încarc elementele simetrice
     ElementeHandshake elemente;
-    if (incarca_elemente_simetrice("output/sym_elements_" + std::to_string(sym_elements_id) + ".base64",
-        sym_elements_id, &elemente) != 0) {
+    std::string sym_id_str = std::to_string(sym_elements_id);
+    if (incarca_elemente_simetrice(sym_id_str, &elemente) != 0) {
         printf("Eroare la incarcarea elementelor simetrice\n");
         OPENSSL_free(temp_der);
         Transaction_free(tranzactie_temp);
@@ -316,9 +306,7 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
         return 1;
     }
 
-    
-
-    //decriptez datele cu fancyofb
+    // Decriptez datele cu FancyOFB
     if (decripteaza_fancyofb((unsigned char*)ASN1_STRING_get0_data(tranzactie->EncryptedData),
         ASN1_STRING_length(tranzactie->EncryptedData),
         elemente.sym_key, elemente.sym_right + 16,
@@ -330,7 +318,6 @@ int decripteaza_tranzactie(const std::string& fisier_tranzactie,
         OPENSSL_free(date_der);
         return 1;
     }
-
 
     OPENSSL_free(temp_der);
     Transaction_free(tranzactie_temp);

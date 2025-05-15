@@ -4,13 +4,11 @@
 #include <iomanip>
 #include <iostream>
 
-
-
 //instantiez membrii statici din clasa.
 Jurnal* Jurnal::instanta = nullptr;
 std::mutex Jurnal::mutex_jurnal;
 
-Jurnal::Jurnal() : cale_fisier("output/jurnal.bin") {
+Jurnal::Jurnal() : cale_fisier("info.log") { // Modificat numele fișierului
     deschide_fisier();
 }
 
@@ -62,8 +60,8 @@ std::string Jurnal::obtine_timestamp() {
     auto acum = std::time(nullptr);
     auto tm_info = std::localtime(&acum);
 
-    char data[11]; // YYYY-MM-DD + null terminator
-    std::strftime(data, sizeof(data), "%Y-%m-%d", tm_info);
+    char data[11]; // DD.MM.YYYY + null terminator
+    std::strftime(data, sizeof(data), "%d.%m.%Y", tm_info);
 
     char ora[9]; // HH:MM:SS + null terminator
     std::strftime(ora, sizeof(ora), "%H:%M:%S", tm_info);
@@ -78,11 +76,18 @@ bool Jurnal::adauga_actiune(const std::string& entitate, const std::string& acti
         return false;
     }
 
-    std::string timestamp = obtine_timestamp();
+    std::string data_timp = obtine_timestamp();
 
-    fisier_jurnal.write(timestamp.c_str(), timestamp.length());
-    fisier_jurnal.write(entitate.c_str(), entitate.length());
-    fisier_jurnal.write(actiune.c_str(), actiune.length());
+    // Format: <data><timp><entitate><actiune>
+    std::string data = "<" + data_timp.substr(0, 10) + ">";
+    std::string timp = "<" + data_timp.substr(10) + ">";
+    std::string id_entitate = "<" + entitate + ">";
+    std::string actiune_formatata = "<" + actiune + ">";
+
+    fisier_jurnal.write(data.c_str(), data.length());
+    fisier_jurnal.write(timp.c_str(), timp.length());
+    fisier_jurnal.write(id_entitate.c_str(), id_entitate.length());
+    fisier_jurnal.write(actiune_formatata.c_str(), actiune_formatata.length());
     fisier_jurnal.flush();
 
     return !fisier_jurnal.fail();

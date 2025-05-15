@@ -5,7 +5,7 @@
 #include <openssl/pem.h>
 #include <openssl/evp.h>
 #include <openssl/kdf.h>
-#include<openssl/hmac.h>
+#include <openssl/hmac.h>
 #include <openssl/bio.h> 
 #include <openssl/err.h> 
 #include <openssl/applink.c>
@@ -42,7 +42,6 @@ int calculeaza_diferenta_timp(unsigned char* diferenta, size_t* lungime_diferent
     *lungime_diferenta = strlen(diferenta_string);
     memcpy(diferenta, diferenta_string, *lungime_diferenta);
     return 0;
-
 }
 
 //functie de creare si salvare chei
@@ -51,7 +50,16 @@ int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& f
 
     EC_KEY* cheie_ec = nullptr;
     EVP_PKEY* pkey = nullptr;
-    BIO* bio = nullptr; // Schimbat de la FILE* la BIO*
+    BIO* bio = nullptr;
+
+    // Extrage ID-ul entității din nume_entitate (presupunem că este un număr)
+    int id_entitate = atoi(nume_entitate.c_str());
+
+    // Formăm noile nume de fișiere conform convențiilor
+    char nume_cheie_privata[256], nume_cheie_publica[256], nume_mac[256];
+    sprintf(nume_cheie_privata, "%d_priv.ecc", id_entitate);
+    sprintf(nume_cheie_publica, "%d_pub.ecc", id_entitate);
+    sprintf(nume_mac, "%d_ecc.mac", id_entitate);
 
     //creez o pereche de chei pe curba secp256k1 cu ajutorul openssl.
     cheie_ec = EC_KEY_new_by_curve_name(NID_secp256k1);
@@ -68,51 +76,48 @@ int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& f
         return 1;
     }
 
-    // Schimbat la utilizarea BIO pentru scrierea cheii private
-    bio = BIO_new_file(fisier_cheie_privata.c_str(), "w");
+    // Salvez cheia privată în format PKCS8
+    bio = BIO_new_file(nume_cheie_privata, "w");
     if (!bio) {
-        printf("eroare la deschiderea fisierului %s: ", fisier_cheie_privata.c_str());
-        ERR_print_errors_fp(stderr); // Afisează erorile OpenSSL
+        printf("eroare la deschiderea fisierului %s: ", nume_cheie_privata);
+        ERR_print_errors_fp(stderr);
         EC_KEY_free(cheie_ec);
         EVP_PKEY_free(pkey);
         return 1;
     }
 
-    if (!PEM_write_bio_PrivateKey(bio, pkey, EVP_aes_256_cbc(), (unsigned char*)"parolamea2303", strlen("parolamea2303"), nullptr, nullptr)) {
+    if (!PEM_write_bio_PKCS8PrivateKey(bio, pkey, EVP_aes_256_cbc(), (unsigned char*)"parolamea2303", strlen("parolamea2303"), nullptr, nullptr)) {
         printf("eroare la salvarea cheii private: ");
-        ERR_print_errors_fp(stderr); // Afisează erorile OpenSSL
+        ERR_print_errors_fp(stderr);
         BIO_free_all(bio);
         EC_KEY_free(cheie_ec);
         EVP_PKEY_free(pkey);
         return 1;
     }
-    BIO_free_all(bio); // Eliberează resursa BIO
+    BIO_free_all(bio);
 
-    // Schimbat la utilizarea BIO pentru scrierea cheii publice
-    bio = BIO_new_file(fisier_cheie_publica.c_str(), "w");
+    // Salvez cheia publică în format specific EC
+    bio = BIO_new_file(nume_cheie_publica, "w");
     if (!bio) {
-        printf("eroare la deschiderea fisierului %s: ", fisier_cheie_publica.c_str());
-        ERR_print_errors_fp(stderr); // Afisează erorile OpenSSL
+        printf("eroare la deschiderea fisierului %s: ", nume_cheie_publica);
+        ERR_print_errors_fp(stderr);
         EC_KEY_free(cheie_ec);
         EVP_PKEY_free(pkey);
         return 1;
     }
 
-    if (!PEM_write_bio_PUBKEY(bio, pkey))
+    if (!PEM_write_bio_EC_PUBKEY(bio, cheie_ec))
     {
         printf("eroare la salvarea cheii publice: ");
-        ERR_print_errors_fp(stderr); // Afisează erorile OpenSSL
+        ERR_print_errors_fp(stderr);
         BIO_free_all(bio);
         EC_KEY_free(cheie_ec);
         EVP_PKEY_free(pkey);
         return 1;
     }
-    BIO_free_all(bio); // Eliberează resursa BIO
+    BIO_free_all(bio);
 
     //calculez diferenta de timp si generez cheia pentru GMAC.
-    //gmac -> varianta a algoritmului GCM folosit pentru autentificarea mesajelor. 
-    //genereaza un cod de autentificare (mac) pentru a verifica autenticitatea si integritatea datelor.
-    //necesita o cheie criptografica pentru a functiona. (o vom face cu ajutorul diferentei de timp)
     unsigned char diferenta_timp[32];
     size_t lungime_diferenta;
     if (calculeaza_diferenta_timp(diferenta_timp, &lungime_diferenta) != 0) {
@@ -122,17 +127,9 @@ int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& f
         return 1;
     }
 
-
-    //generez cheia pentru gmac cu pbkdf2 si sha256. 
-    //PBKDF2 este un algoritm de derivare a cheilor ce transforma o parola sau un sir intr-o cheie cripgorafica
-    //sha256 algoritm de hash din familia sha2 folosit in pbkdf2 pentru a crea has-uri iterative.
-    //pbkdf2 combina:
-        //un sir de intrare (diferenta de timp)
-        //un salt (un random pentru a preveni atacurile)
-        //un nr de iteratii
-        //un algoritm de hash (sha256)
-    unsigned char cheie_mac[32]; //cheia pentru gmac;
-    const EVP_MD* digest = EVP_sha3_256(); //sha3-256 ca algorim de hash.
+    // Generez cheia pentru GMAC (16 bytes pentru AES-128) folosind PBKDF2 cu SHA3-256
+    unsigned char cheie_mac[16]; // Redus de la 32 la 16 bytes pentru AES-128
+    const EVP_MD* digest = EVP_sha3_256();
     if (!digest) {
         printf("eroare la obtinerea sha3-256\n");
         EC_KEY_free(cheie_ec);
@@ -140,21 +137,14 @@ int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& f
         return 1;
     }
 
-
-    //folosesc PKCS5_PBKDF2_HMAC pentru a deriva cheia
     if (PKCS5_PBKDF2_HMAC((const char*)diferenta_timp, lungime_diferenta,
-        NULL, 0, //fara salt
-        10000, //cate iteratii sa aibe
-        digest, //sha3-256
-        sizeof(cheie_mac), //lungimea cheii adica 32 bytes
-        cheie_mac) != 1) { //cheia derivata.
+        NULL, 0, 10000, digest, sizeof(cheie_mac), cheie_mac) != 1) {
         printf("eroare la generarea cheii MAC cu pbkdf2\n");
         EC_KEY_free(cheie_ec);
         EVP_PKEY_free(pkey);
         return 1;
     }
 
-    //generez GMAC pentru cheia publica 
     //transform cheia publica din format DER
     unsigned char* cheie_publica_der = nullptr;
     int lungime_cheie_publica = i2d_PUBKEY(pkey, &cheie_publica_der);
@@ -166,29 +156,25 @@ int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& f
         return 1;
     }
 
-
     //generam GMAC
-    unsigned char valoare_mac[16]; //16 bytes pentru GMAC.
-    EVP_MAC* mac = EVP_MAC_fetch(NULL, "GMAC", NULL); //am ales gmac.
-    EVP_MAC_CTX* context_mac = EVP_MAC_CTX_new(mac); //am creat contextul pentru GMAC.
+    unsigned char valoare_mac[16]; // 16 bytes pentru GMAC
+    EVP_MAC* mac = EVP_MAC_fetch(NULL, "GMAC", NULL);
+    EVP_MAC_CTX* context_mac = EVP_MAC_CTX_new(mac);
 
+    unsigned char iv[12] = { 0 };
 
-    unsigned char iv[12] = { 0 };   
-    
-    
     OSSL_PARAM parametri[3];
-    parametri[0] = OSSL_PARAM_construct_utf8_string("cipher", (char*)"AES-256-GCM", 0);
-    parametri[1] = OSSL_PARAM_construct_octet_string("iv", iv, sizeof(iv)); // adaug iv u
+    parametri[0] = OSSL_PARAM_construct_utf8_string("cipher", (char*)"AES-128-GCM", 0);
+    parametri[1] = OSSL_PARAM_construct_octet_string("iv", iv, sizeof(iv));
     parametri[2] = OSSL_PARAM_construct_end();
     size_t lungime_valoare_mac = sizeof(valoare_mac);
 
-
     if (!context_mac ||
-        !EVP_MAC_init(context_mac, cheie_mac, sizeof(cheie_mac), parametri) || // initializez gmac
-        !EVP_MAC_update(context_mac, cheie_publica_der, lungime_cheie_publica) || // adaug cheia publica
-        !EVP_MAC_final(context_mac, valoare_mac, &lungime_valoare_mac, sizeof(valoare_mac))) { //generez gmac
+        !EVP_MAC_init(context_mac, cheie_mac, sizeof(cheie_mac), parametri) ||
+        !EVP_MAC_update(context_mac, cheie_publica_der, lungime_cheie_publica) ||
+        !EVP_MAC_final(context_mac, valoare_mac, &lungime_valoare_mac, sizeof(valoare_mac))) {
         printf("Eroare la generarea GMAC\n");
-        ERR_print_errors_fp(stderr); // adaug pentru afisarea erorilor la debug.
+        ERR_print_errors_fp(stderr);
         EVP_MAC_CTX_free(context_mac);
         EVP_MAC_free(mac);
         OPENSSL_free(cheie_publica_der);
@@ -201,7 +187,6 @@ int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& f
     OPENSSL_free(cheie_publica_der);
 
     //acum avem gmac-ul si trebuie sa il salvam in format DER.
-    //vom folosi structura creata PubKeyMac.
     PubKeyMac* mac_structura = PubKeyMac_new();
     if (!mac_structura) {
         printf("eroare la crearea structurii PubKeyMac\n");
@@ -209,10 +194,10 @@ int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& f
         EVP_PKEY_free(pkey);
         return 1;
     }
-    //acum pun valorile anterioare in structura mac_structura.
-    ASN1_STRING_set(mac_structura->PubKeyName, nume_entitate.c_str(), nume_entitate.length()); //setez numele entitatii
-    ASN1_STRING_set(mac_structura->MACKey, cheie_mac, sizeof(cheie_mac)); // cheia mac
-    ASN1_STRING_set(mac_structura->MACValue, valoare_mac, lungime_valoare_mac); // val gmac.
+
+    ASN1_STRING_set(mac_structura->PubKeyName, nume_entitate.c_str(), nume_entitate.length());
+    ASN1_STRING_set(mac_structura->MACKey, cheie_mac, sizeof(cheie_mac));
+    ASN1_STRING_set(mac_structura->MACValue, valoare_mac, lungime_valoare_mac);
 
     //transformam structura in formatul DER.
     unsigned char* date_der = nullptr;
@@ -225,19 +210,18 @@ int creeaza_salveaza_chei(const std::string& nume_entitate, const std::string& f
         return 1;
     }
 
-    // Schimbat la utilizarea BIO pentru scrierea GMAC
-    bio = BIO_new_file(fisier_mac.c_str(), "wb"); // Deschid fisierul in mod binar
+    bio = BIO_new_file(nume_mac, "wb");
     if (!bio) {
-        printf("eroare la deschiderea fisierului: %s: ", fisier_mac.c_str());
-        ERR_print_errors_fp(stderr); // Afisează erorile OpenSSL
+        printf("eroare la deschiderea fisierului: %s: ", nume_mac);
+        ERR_print_errors_fp(stderr);
         OPENSSL_free(date_der);
         PubKeyMac_free(mac_structura);
         EC_KEY_free(cheie_ec);
         EVP_PKEY_free(pkey);
         return 1;
     }
-    BIO_write(bio, date_der, lungime_der); // Scriere date DER
-    BIO_free_all(bio); // Eliberează resursa BIO
+    BIO_write(bio, date_der, lungime_der);
+    BIO_free_all(bio);
 
     OPENSSL_free(date_der);
     PubKeyMac_free(mac_structura);

@@ -3,18 +3,24 @@
 
 #include <string>
 #include <openssl/evp.h>
+#include <openssl/rsa.h>
 
-//incaracrea cheii private din fisier
+// Funcție pentru încărcarea cheii private ECC
+EVP_PKEY* incarca_cheie_privata(const std::string& id_entitate, const char* parola);
 
-EVP_PKEY* incarca_cheie_privata(const std::string& fisier_cheie_privata, const char* parola);
+// Funcție pentru încărcarea cheii publice ECC
+EVP_PKEY* incarca_cheie_publica(const std::string& id_entitate);
 
-//incarcarea unei chei publice din fisire
-EVP_PKEY* incarca_cheie_publica(const std::string& fisier_cheie_publica);
+// Funcție pentru încărcarea cheii private RSA
+RSA* incarca_cheie_privata_rsa(const std::string& id_entitate, const char* parola);
 
+// Funcție pentru încărcarea cheii publice RSA
+EVP_PKEY* incarca_cheie_publica_rsa(const std::string& id_entitate);
 
-//verificarea autentificatii cheii publice cu ajutorul mac-ul.
-int verifica_autenticitate_cheie_publica(const std::string& nume_entitate,
-    const std::string& fisier_cheie_publica,
-    const std::string& fisier_mac);
+// Verificarea autenticității cheii publice ECC cu ajutorul MAC-ului
+int verifica_autenticitate_cheie_publica(const std::string& id_entitate);
+
+// Verificarea autenticității cheii publice RSA cu ajutorul MAC-ului
+int verifica_autenticitate_cheie_publica_rsa(const std::string& id_entitate);
 
 #endif
