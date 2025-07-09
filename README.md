@@ -1,70 +1,138 @@
 # SecureChain - Cryptographic Transaction Management System
 
-A C++ implementation using OpenSSL for secure transaction management between entities with ECC key pairs, ECDH key exchange, and custom AES-128-FancyOFB encryption.
+A C++ implementation using OpenSSL for secure transaction management between entities, featuring ECC/RSA key pairs, ECDH handshake, and custom AES-128-FancyOFB encryption.
 
-## Features
+## Implementation Details
 
-- **ECC Key Generation**: 256-bit elliptic curve keys (secp256k1) with encrypted private key storage
-- **RSA Key Generation**: 3072-bit RSA keys for transaction signing
-- **Key Authentication**: GMAC validation using PBKDF2-SHA3-256
-- **ECDH Key Exchange**: Secure symmetric key derivation through handshake protocol
-- **Custom Encryption**: AES-128-FancyOFB mode with inverted IV XOR operation
-- **Transaction Management**: DER-encoded transactions with RSA signatures
-- **Binary Logging**: Action journaling in blob format
+### 1. Key Generation (`creare_salvare_chei.cpp` & `generare_rsa.cpp`)
 
-## Key Components
+#### ECC Keys (secp256k1)
+- **Private Key**: Encrypted with AES-256-CBC using entity password, saved in PKCS8 format
+- **Public Key**: Saved in standard EC format
+- **GMAC Generation**:
+  ```cpp
+  // Calculate time difference to 05/05/2005 05:05:05
+  time_t timp_tinta = _mkgmtime(&data_tinta); // May 5, 2005, 05:05:05
+  double diferenta_secunde = difftime(acum, timp_tinta);
+  
+  // Generate MAC key using PBKDF2-SHA3-256
+  PKCS5_PBKDF2_HMAC(diferenta_timp, lungime_diferenta, 
+                    NULL, 0, 10000, EVP_sha3_256(), 16, cheie_mac)
+  
+  // Generate GMAC with AES-128-GCM
+  EVP_MAC_init(context_mac, cheie_mac, 16, parametri)
+  ```
 
-### ASN.1 Structures
-- `PubKeyMAC`: Stores public key authentication data
-- `SymElements`: Contains symmetric encryption elements (Base64 encoded)
-- `Transaction`: Complete transaction structure with encrypted data and signature
+#### RSA Keys (3072-bit)
+- Generated with same time-based GMAC approach
+- Encrypted with hardcoded password: "parolamea2303"
+- Saved in PKCS1 format
 
-### File Outputs
-- **ECC Keys**: `{id}_priv.ecc`, `{id}_pub.ecc` (PEM format, PKCS8)
-- **RSA Keys**: `{id}_priv.rsa`, `{id}_pub.rsa` (PEM format, PKCS1)
-- **MAC Files**: `{id}_ecc.mac`, `{id}_rsa.mac` (DER encoded)
-- **Symmetric Elements**: `{id}.sym` (Base64 encoded DER)
-- **Transactions**: `{sender}_{receiver}_{id}.trx` (Raw DER)
-- **Log File**: `info.log` (Binary blob format)
+### 2. ECDH Handshake & Key Derivation (`handshake_ecdh.cpp`)
 
-## Cryptographic Process
+```cpp
+// Extract x,y coordinates from shared ECDH point
+EC_POINT_mul(grup, punct_comun, NULL, punct_public_peer, 
+             EC_KEY_get0_private_key(cheie_privata), NULL)
 
-1. **Key Derivation**:
-   - SymLeft = SHA-256(x) split and XORed
-   - SymRight = PBKDF2-SHA384(y, no salt, 1000 iterations)
-   - SymKey = SymLeft ⊕ First_16_bytes(SymRight)
+// SymLeft: SHA-256(x) split and XORed
+SHA256(x, 32, x_hash);
+for (int i = 0; i < 16; i++) {
+    elemente->sym_left[i] = x_hash[i] ^ x_hash[i + 16];
+}
 
-2. **FancyOFB Encryption**:
-   - Standard AES-128-OFB with additional XOR using inverted IV
-   - inv_IV = reverse(IV)
+// SymRight: PBKDF2-SHA384(y)
+PKCS5_PBKDF2_HMAC((const char*)y, 32, NULL, 0, 1000, 
+                  EVP_sha384(), 48, elemente->sym_right)
 
-3. **Transaction Flow**:
-   - Generate and validate keys
+// SymKey = SymLeft XOR first 16 bytes of SymRight
+for (int i = 0; i < 16; i++) {
+    elemente->sym_key[i] = elemente->sym_left[i] ^ elemente->sym_right[i];
+}
+```
+
+### 3. FancyOFB Encryption (`criptare_fancyofb.cpp`)
+
+```cpp
+// Create inverted IV
+for (int i = 0; i < 16; i++) {
+    inv_iv[i] = iv[15 - i]; // Reverse byte order
+}
+
+// Standard AES-128-OFB encryption
+EVP_EncryptInit_ex(ctx, EVP_aes_128_ofb(), NULL, sym_key, iv)
+EVP_EncryptUpdate(ctx, *date_criptate, &lungime_temp, date, lungime_date)
+
+// Apply FancyOFB modification: XOR with inv_IV
+for (int i = 0; i < *lungime_date_criptate; i++) {
+    (*date_criptate)[i] ^= inv_iv[i % 16];
+}
+```
+
+### 4. Transaction Creation & Signing (`tranzactii.cpp`)
+
+```cpp
+// Create ASN.1 Transaction structure
+Transaction* tranzactie = Transaction_new();
+ASN1_INTEGER_set(tranzactie->TransactionID, transaction_id);
+ASN1_STRING_set(tranzactie->Subject, subiect.c_str(), subiect.length());
+// ... set other fields
+
+// Sign with RSA-SHA256
+EVP_DigestSignInit(md_ctx, NULL, EVP_sha256(), NULL, pkey)
+EVP_DigestSignUpdate(md_ctx, date, lungime_date)
+EVP_DigestSignFinal(md_ctx, *semnatura, &len)
+```
+
+### 5. Key Validation (`handshake_validare.cpp`)
+
+Both ECC and RSA public keys are validated by:
+1. Loading the stored MAC from `.mac` files
+2. Recalculating GMAC over the public key DER encoding
+3. Comparing stored vs calculated MAC values
+
+### 6. Binary Logging (`jurnal.cpp`)
+
+Singleton pattern implementation for thread-safe logging:
+```cpp
+// Format: <data><timp><entitate><actiune>
+std::string data = "<" + data_timp.substr(0, 10) + ">";
+std::string timp = "<" + data_timp.substr(10) + ">";
+std::string id_entitate = "<" + entitate + ">";
+std::string actiune_formatata = "<" + actiune + ">";
+```
+
+## File Structure
+
+### Input Processing (`Source.cpp`)
+1. Read entities and passwords
+2. Generate ECC and RSA keys for each entity
+3. Process transactions:
+   - Verify key authenticity
    - Perform ECDH handshake
-   - Encrypt message with derived symmetric key
-   - Sign transaction with RSA private key
-   - Verify signature and decrypt on receiver side
+   - Save symmetric elements
+   - Create and sign transaction
+   - Decrypt and verify on receiver side
 
-## Building & Running
-
-```bash
-# Requires OpenSSL library
-# Visual Studio 2022 project included
-# Run with input file:
-SecureChain.exe input.txt
+### ASN.1 Structures (`structuri_asn1.cpp`)
+```cpp
+ASN1_SEQUENCE(PubKeyMac) = {
+    ASN1_SIMPLE(PubKeyMac, PubKeyName, ASN1_PRINTABLESTRING),
+    ASN1_SIMPLE(PubKeyMac, MACKey, ASN1_OCTET_STRING),
+    ASN1_SIMPLE(PubKeyMac, MACValue, ASN1_OCTET_STRING)
+} ASN1_SEQUENCE_END(PubKeyMac)
 ```
 
-## Input Format
-```
-<number_of_entities>
-<entity_id> <password>
-...
-<number_of_transactions>
-<transaction_id>/<sender_id>/<receiver_id>/<subject>/<message>
-...
-```
+## Output Files
 
-## Dependencies
-- OpenSSL 3.x
-- C++20
-- Windows (uses `_mkgmtime`)
+- **Keys**: Stored in `output/` directory when using Visual Studio
+- **Symmetric Elements**: Base64 encoded DER format
+- **Transactions**: Raw DER format with signature
+- **Log**: Binary blob format in `info.log`
+
+## Security Notes
+
+- IV for symmetric encryption: Extracted from bytes 16-31 of SymRight
+- All private keys encrypted before storage
+- GMAC provides key authenticity verification
+- RSA signatures ensure transaction integrity
